@@ -1,0 +1,109 @@
+import { Router, Request, Response } from 'express';
+import { query, rowToCamelCase } from '../config/database';
+import { authenticate, requireRoles } from '../middleware/auth';
+
+const router = Router();
+
+interface InstanceConfig {
+  name: string;
+  logoUrl: string | null;
+  brandColor: string;
+  sidebarColor: string | null;
+  currency: string;
+  areaLabel: string;
+  areaLabelPlural: string;
+  contactEmail: string | null;
+  footerOrg: string;
+}
+
+// env vars provide the baseline; the DB row overrides them when set
+const envDefaults = (): InstanceConfig => ({
+  name: process.env.INSTANCE_NAME || 'Government Project Tracker',
+  logoUrl: process.env.INSTANCE_LOGO_URL || null,
+  brandColor: process.env.INSTANCE_BRAND_COLOR || '#0284c7',
+  sidebarColor: process.env.INSTANCE_SIDEBAR_COLOR || null,
+  currency: process.env.INSTANCE_CURRENCY || '₦',
+  areaLabel: process.env.INSTANCE_AREA_LABEL || 'LGA',
+  areaLabelPlural: process.env.INSTANCE_AREA_LABEL_PLURAL || 'LGAs',
+  contactEmail: process.env.INSTANCE_CONTACT_EMAIL || null,
+  footerOrg: process.env.INSTANCE_FOOTER_ORG || 'Kreatix Technologies',
+});
+
+const getConfig = async (): Promise<InstanceConfig> => {
+  const defaults = envDefaults();
+  try {
+    const result = await query('SELECT * FROM instance_settings WHERE id = 1');
+    if (result.rows.length === 0) return defaults;
+    const row = rowToCamelCase(result.rows[0]);
+    // Treat untouched defaults as "inherit env", explicit values win
+    return {
+      name: row.name || defaults.name,
+      logoUrl: row.logoUrl ?? defaults.logoUrl,
+      brandColor: row.brandColor || defaults.brandColor,
+      sidebarColor: row.sidebarColor ?? defaults.sidebarColor,
+      currency: row.currency || defaults.currency,
+      areaLabel: row.areaLabel || defaults.areaLabel,
+      areaLabelPlural: row.areaLabelPlural || defaults.areaLabelPlural,
+      contactEmail: row.contactEmail ?? defaults.contactEmail,
+      footerOrg: row.footerOrg || defaults.footerOrg,
+    };
+  } catch {
+    // Table may not exist yet on a pre-migration database
+    return defaults;
+  }
+};
+
+/**
+ * GET /api/instance
+ * Public white-label configuration for this deployment.
+ */
+router.get('/', async (_req: Request, res: Response) => {
+  try {
+    return res.json({ success: true, data: { instance: await getConfig() } });
+  } catch (error: any) {
+    console.error('Get instance config error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to load instance config' });
+  }
+});
+
+const EDITABLE_FIELDS: Record<string, string> = {
+  name: 'name',
+  logoUrl: 'logo_url',
+  brandColor: 'brand_color',
+  sidebarColor: 'sidebar_color',
+  currency: 'currency',
+  areaLabel: 'area_label',
+  areaLabelPlural: 'area_label_plural',
+  contactEmail: 'contact_email',
+  footerOrg: 'footer_org',
+};
+
+/**
+ * PUT /api/instance
+ * Update white-label settings (admin only)
+ */
+router.put('/', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Request, res: Response) => {
+  try {
+    const sets: string[] = [];
+    const values: any[] = [];
+    for (const [key, col] of Object.entries(EDITABLE_FIELDS)) {
+      if (req.body[key] !== undefined) {
+        values.push(req.body[key]);
+        sets.push(`${col} = $${values.length}`);
+      }
+    }
+    if (sets.length > 0) {
+      await query('INSERT INTO instance_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING');
+      await query(
+        `UPDATE instance_settings SET ${sets.join(', ')}, updated_at = NOW() WHERE id = 1`,
+        values
+      );
+    }
+    return res.json({ success: true, data: { instance: await getConfig() } });
+  } catch (error: any) {
+    console.error('Update instance config error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update instance config' });
+  }
+});
+
+export default router;

@@ -6,7 +6,7 @@ import { projectAPI, contractorAPI, documentAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import StatusPill from '../components/ui/StatusPill';
 import ProgressBar from '../components/ui/ProgressBar';
-import { categoryLabel, fmtNaira, fmtDate } from '../utils/statusMap';
+import { categoryLabel, fmtNaira, fmtDate, areaLabel, currency } from '../utils/statusMap';
 import { showSuccess, showError } from '../utils/toast';
 
 // Map a milestone + its submissions to a review state for the timeline
@@ -218,7 +218,7 @@ export default function ProjectDetail() {
       {/* Facts strip */}
       <section className="bg-surface border border-border rounded-2xl px-6 py-[22px] grid grid-cols-2 md:grid-cols-5 gap-5">
         <div>
-          <div className="text-[13px] text-muted">LGA</div>
+          <div className="text-[13px] text-muted">{areaLabel()}</div>
           <div className="mt-0.5 font-semibold">{lgaText || '—'}</div>
         </div>
         <div>
@@ -472,7 +472,7 @@ export default function ProjectDetail() {
                   <input id="ms-order" type="number" min={0} className="input" value={milestoneForm.orderIndex ?? ''} onChange={(e) => setMilestoneForm({ ...milestoneForm, orderIndex: e.target.value })} placeholder="Auto" />
                 </div>
                 <div>
-                  <label className="label" htmlFor="ms-budget">Budget (₦)</label>
+                  <label className="label" htmlFor="ms-budget">Budget ({currency()})</label>
                   <input id="ms-budget" type="number" min={0} className="input" value={milestoneForm.budget ?? ''} onChange={(e) => setMilestoneForm({ ...milestoneForm, budget: e.target.value })} placeholder="Optional" />
                 </div>
                 {milestoneModal.mode === 'edit' && (

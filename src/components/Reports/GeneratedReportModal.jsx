@@ -1,4 +1,5 @@
 import { X, FileText, Calendar, User, TrendingUp, Download, BarChart3 } from 'lucide-react';
+import { fmtNairaCompact } from '../../utils/statusMap';
 
 const STATUS_LABELS = {
  NOT_STARTED: 'Not Started',
@@ -31,12 +32,7 @@ const typeColors = {
  CUSTOM: 'bg-bg text-ink border-border',
 };
 
-const formatNaira = (value) => {
- const n = Number(value || 0);
- if (n >= 1e9) return `₦${(n / 1e9).toFixed(2)}B`;
- if (n >= 1e6) return `₦${(n / 1e6).toFixed(1)}M`;
- return `₦${n.toLocaleString()}`;
-};
+const formatNaira = fmtNairaCompact;
 
 const formatDate = (value) => {
  if (!value) return '—';

@@ -3,6 +3,7 @@ import { ArrowRight, MapPin, Calendar, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { projectAPI } from '../../services/api';
+import { fmtNaira } from '../../utils/statusMap';
 
 const statusStyles = {
  'COMPLETED': 'status-completed',
@@ -107,7 +108,7 @@ export default function RecentProjects() {
  </div>
  <div className="flex items-center">
  <DollarSign className="h-3 w-3 mr-1" />
- Budget: ₦{(project.budget || 0).toLocaleString()}
+ Budget: {fmtNaira(project.budget)}
  </div>
  </div>
 

@@ -30,6 +30,7 @@ import clsx from 'clsx';
 import { projectAPI, submissionAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { showSuccess, showError } from '../utils/toast';
+import { fmtNairaCompact } from '../utils/statusMap';
 
 // Mock data removed - now using API calls
 
@@ -183,7 +184,7 @@ export default function ContractorDashboard() {
  </button>
  <div className="text-right">
  <p className="text-sm text-muted">Contract Value</p>
- <p className="text-2xl font-bold text-green-700 dark:text-green-400">₦{(totalBudget / 1000000000).toFixed(1)}B</p>
+ <p className="text-2xl font-bold text-green-700 dark:text-green-400">{fmtNairaCompact(totalBudget)}</p>
  </div>
  </div>
  </div>

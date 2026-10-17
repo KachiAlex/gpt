@@ -5,7 +5,8 @@ import { publicAPI } from '../services/api';
 import LGATileMap from '../components/ui/LGATileMap';
 import StatusPill from '../components/ui/StatusPill';
 import ProgressBar from '../components/ui/ProgressBar';
-import { categoryLabel, fmtNaira, fmtNairaCompact } from '../utils/statusMap';
+import { categoryLabel, fmtNaira, fmtNairaCompact, areaLabel } from '../utils/statusMap';
+import { useInstance } from '../contexts/InstanceContext';
 
 const steps = [
   { icon: HardHat, title: 'Contractors report progress', text: 'Each milestone is submitted with notes and documents.' },
@@ -14,13 +15,14 @@ const steps = [
 ];
 
 const audiences = [
-  { title: 'Citizens', text: 'Browse projects in your LGA without an account.', link: '/public', cta: 'Open the portal' },
+  { title: 'Citizens', text: `Browse projects in your ${areaLabel().toLowerCase()} without an account.`, link: '/public', cta: 'Open the portal' },
   { title: 'Contractors', text: 'Log in to submit milestones, upload documents and track reviews.', link: '/login', cta: 'Contractor login' },
   { title: 'Government staff', text: 'Manage projects and contractors, review submissions and generate reports.', link: '/login', cta: 'Staff login' },
 ];
 
 export default function Home() {
   const navigate = useNavigate();
+  const instance = useInstance();
   const [search, setSearch] = useState('');
   const [stats, setStats] = useState(null);
   const [lgaCounts, setLgaCounts] = useState({});
@@ -30,7 +32,7 @@ export default function Home() {
     publicAPI.getStats()
       .then((res) => setStats(res.data?.stats || null))
       .catch(() => {});
-    publicAPI.getProjectsByLGA()
+    publicAPI.getProjectsByArea()
       .then((res) => {
         const counts = {};
         (res.data?.projectsByLGA || []).forEach((g) => { counts[g.lga] = g.count; });
@@ -59,13 +61,13 @@ export default function Home() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
-          <Link to="/" aria-label="Government Project Tracker home" className="flex items-center gap-3">
-            <img src="/logo.png" alt="Government Project Tracker" className="h-11 w-auto" />
+          <Link to="/" aria-label={`${instance.name} home`} className="flex items-center gap-3">
+            <img src={instance.logoUrl} alt={instance.name} className="h-11 w-auto" />
             <span className="text-xs text-slate-500 font-medium hidden sm:block">Public accountability for government projects</span>
           </Link>
           <nav aria-label="Primary" className="hidden md:flex items-center gap-7 text-[15px] font-medium text-slate-700">
             <Link to="/public" className="hover:text-primary-700">Projects</Link>
-            <a href="#lgas" className="hover:text-primary-700">By LGA</a>
+            <a href="#lgas" className="hover:text-primary-700">By {areaLabel()}</a>
             <a href="#how" className="hover:text-primary-700">How it works</a>
             <a href="#audiences" className="hover:text-primary-700">For contractors</a>
           </nav>
@@ -86,7 +88,7 @@ export default function Home() {
           <div className="flex-1 min-w-0 basis-[460px]">
             <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-primary-200 bg-primary-500/[.18] px-3.5 py-1.5 rounded-full">
               <Shield className="w-4 h-4" />
-              Every project, every naira, every LGA
+              Every project, every naira, every {areaLabel().toLowerCase()}
             </div>
             <h1 className="mt-5 font-extrabold text-[40px] md:text-[56px] leading-[1.06] tracking-[-0.02em]">
               See how public money is building your communities
@@ -103,7 +105,7 @@ export default function Home() {
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by project, LGA or contractor"
+                  placeholder={`Search by project, ${areaLabel()} or contractor`}
                   className="w-full h-[54px] rounded-xl bg-white pl-[46px] pr-4 text-base text-slate-900"
                 />
               </div>
@@ -218,17 +220,17 @@ export default function Home() {
           <div className="flex-1 basis-[300px] max-w-[400px]">
             <div className="flex items-center gap-3">
               <img src="/logo-mark.png" alt="" className="h-9 w-auto" />
-              <span className="font-extrabold text-xl text-white">Government Project Tracker</span>
+              <span className="font-extrabold text-xl text-white">{instance.name}</span>
             </div>
             <p className="mt-2.5 text-[15px]">
-              Tracking publicly funded projects across every local government area.
+              Tracking publicly funded projects across every {areaLabel().toLowerCase()}.
             </p>
           </div>
           <div className="flex flex-wrap gap-14 text-[15px]">
             <div className="flex flex-col gap-2.5">
               <span className="text-white font-semibold">Explore</span>
               <Link to="/public" className="hover:text-white">All projects</Link>
-              <a href="#lgas" className="hover:text-white">By LGA</a>
+              <a href="#lgas" className="hover:text-white">By {areaLabel()}</a>
               <a href="#how" className="hover:text-white">How it works</a>
             </div>
             <div className="flex flex-col gap-2.5">
@@ -238,13 +240,15 @@ export default function Home() {
             </div>
             <div className="flex flex-col gap-2.5">
               <span className="text-white font-semibold">Contact</span>
-              <span>Government Secretariat, Umuahia</span>
-              <span>info@gpt-system.gov</span>
+              <span>{instance.footerOrg || instance.name}</span>
+              {instance.contactEmail && (
+                <a href={`mailto:${instance.contactEmail}`} className="hover:text-white">{instance.contactEmail}</a>
+              )}
             </div>
           </div>
         </div>
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pb-8 text-sm text-primary-300">
-          © 2026 Kreatix Technologies
+          © 2026 {instance.footerOrg || instance.name}
         </div>
       </footer>
     </div>

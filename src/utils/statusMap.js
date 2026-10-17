@@ -1,5 +1,10 @@
 // Maps backend status enums to display labels + design-token class suffixes.
 // Classes (status-<key> for pills, bar-<key> for progress fills) live in index.css.
+import { getInstance } from '../services/instance';
+
+export const areaLabel = () => getInstance().areaLabel;
+export const areasLabel = () => getInstance().areaLabelPlural;
+export const currency = () => getInstance().currency;
 
 export const STATUS_KEYS = {
   NOT_STARTED: 'not-started',
@@ -62,14 +67,15 @@ export const collectAreas = (projects = []) => {
   return [...set].sort();
 };
 
-export const fmtNaira = (n) => `₦${Number(n || 0).toLocaleString()}`;
+export const fmtNaira = (n) => `${getInstance().currency}${Number(n || 0).toLocaleString()}`;
 
 export const fmtNairaCompact = (n) => {
+  const cur = getInstance().currency;
   const v = Number(n || 0);
-  if (v >= 1e9) return `₦${(v / 1e9).toFixed(1).replace(/\.0$/, '')}B`;
-  if (v >= 1e6) return `₦${(v / 1e6).toFixed(1).replace(/\.0$/, '')}M`;
-  if (v >= 1e3) return `₦${Math.round(v / 1e3)}K`;
-  return `₦${v}`;
+  if (v >= 1e9) return `${cur}${(v / 1e9).toFixed(1).replace(/\.0$/, '')}B`;
+  if (v >= 1e6) return `${cur}${(v / 1e6).toFixed(1).replace(/\.0$/, '')}M`;
+  if (v >= 1e3) return `${cur}${Math.round(v / 1e3)}K`;
+  return `${cur}${v}`;
 };
 
 export const fmtDate = (d) => {

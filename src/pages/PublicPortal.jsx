@@ -5,7 +5,8 @@ import clsx from 'clsx';
 import { publicAPI } from '../services/api';
 import StatusPill from '../components/ui/StatusPill';
 import ProgressBar from '../components/ui/ProgressBar';
-import { categoryLabel, fmtNaira, fmtNairaCompact, fmtDate } from '../utils/statusMap';
+import { categoryLabel, fmtNaira, fmtNairaCompact, fmtDate, areaLabel, areasLabel } from '../utils/statusMap';
+import { useInstance } from '../contexts/InstanceContext';
 
 const CATEGORIES = ['All', 'Transportation', 'Healthcare', 'Water & Sanitation', 'Education', 'Housing'];
 const SORTS = [
@@ -15,6 +16,7 @@ const SORTS = [
 ];
 
 export default function PublicPortal() {
+  const instance = useInstance();
   const [params, setParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(params.get('search') || '');
   const [category, setCategory] = useState('All');
@@ -46,7 +48,7 @@ export default function PublicPortal() {
 
   useEffect(() => {
     publicAPI.getStats().then((res) => setStats(res.data?.stats || null)).catch(() => {});
-    publicAPI.getProjectsByLGA()
+    publicAPI.getProjectsByArea()
       .then((res) => setLgaOptions((res.data?.projectsByLGA || []).map((g) => g.lga).filter(Boolean).sort()))
       .catch(() => {});
   }, []);
@@ -95,8 +97,8 @@ export default function PublicPortal() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
-          <Link to="/" aria-label="Government Project Tracker home" className="flex items-center gap-3">
-            <img src="/logo.png" alt="Government Project Tracker" className="h-11 w-auto" />
+          <Link to="/" aria-label={`${instance.name} home`} className="flex items-center gap-3">
+            <img src={instance.logoUrl} alt={instance.name} className="h-11 w-auto" />
           </Link>
           <div className="flex items-center gap-2.5">
             <Link to="/" className="min-h-[44px] inline-flex items-center px-3 font-medium text-slate-700">
@@ -131,14 +133,14 @@ export default function PublicPortal() {
               />
             </div>
             <div className="flex-1 basis-[200px]">
-              <label htmlFor="pp-lga" className="sr-only">Local government area</label>
+              <label htmlFor="pp-lga" className="sr-only">{areaLabel()}</label>
               <select
                 id="pp-lga"
                 value={lga}
                 onChange={(e) => setLga(e.target.value)}
                 className="w-full h-[52px] border-[1.5px] border-slate-300 rounded-xl bg-white px-3.5 text-base text-slate-900"
               >
-                <option value="">All areas</option>
+                <option value="">All {areasLabel().toLowerCase()}</option>
                 {lgaOptions.map((l) => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
@@ -282,7 +284,7 @@ export default function PublicPortal() {
                 <div className="space-y-5">
                   <div className="space-y-2.5 text-[15px]">
                     {[
-                      ['LGA', selected.lga],
+                      [areaLabel(), Array.isArray(selected.lga) ? selected.lga.join(', ') : selected.lga],
                       ['Budget', fmtNaira(selected.budget)],
                       ['Contractor', selected.contractor?.companyName || '—'],
                       ['Start date', fmtDate(selected.startDate)],

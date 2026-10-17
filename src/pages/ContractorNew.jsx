@@ -4,6 +4,7 @@ import { useContractors } from '../contexts/ContractorsContext';
 import { projectAPI, documentAPI } from '../services/api';
 import { validateContractorForm, validateFile } from '../utils/validation';
 import { showSuccess, showError } from '../utils/toast';
+import { fmtNaira, currency } from '../utils/statusMap';
 import { 
  ArrowLeft, 
  Save, 
@@ -53,7 +54,7 @@ export default function ContractorNew() {
  name: p.name,
  category: p.category,
  status: p.status,
- budget: `₦${(p.budget || 0).toLocaleString()}`,
+ budget: fmtNaira(p.budget),
  location: Array.isArray(p.lga) ? p.lga.join(', ') : p.lga || 'Not specified',
  startDate: p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : '',
  endDate: p.expectedEndDate ? new Date(p.expectedEndDate).toISOString().split('T')[0] : ''
@@ -729,7 +730,7 @@ export default function ContractorNew() {
  
  <div>
  <label className="block text-sm font-medium text-ink mb-2">
- Annual Revenue (₦)
+ Annual Revenue ({currency()})
  </label>
  <input
  type="number"

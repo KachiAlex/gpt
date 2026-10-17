@@ -20,6 +20,7 @@ import { projectAPI } from '../services/api';
 import { useContractors } from '../contexts/ContractorsContext';
 import { showSuccess, showError } from '../utils/toast';
 import { validateProjectForm } from '../utils/validation';
+import { areasLabel, currency, fmtNaira } from '../utils/statusMap';
 
 const projectCategories = [
  'Transportation',
@@ -348,7 +349,7 @@ export default function ProjectNew() {
 
  <div>
  <label className="block text-sm font-medium text-ink mb-2" htmlFor="pn-lga">
- Local Government Area(s) *
+ {areasLabel()} *
  </label>
  <div className="flex gap-2">
  <input
@@ -423,7 +424,7 @@ export default function ProjectNew() {
  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
  <div>
  <label className="block text-sm font-medium text-ink mb-2">
- Total Budget (₦) *
+ Total Budget ({currency()}) *
  </label>
  <div className="relative">
  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted" />
@@ -681,7 +682,7 @@ export default function ProjectNew() {
  <p className="text-ink">{formData.category || 'Not specified'}</p>
  </div>
  <div>
- <span className="font-medium text-ink">LGAs:</span>
+ <span className="font-medium text-ink">{areasLabel()}:</span>
  <p className="text-ink">
  {formData.lga.length === 0 
  ? 'Not specified' 
@@ -692,7 +693,7 @@ export default function ProjectNew() {
  </div>
  <div>
  <span className="font-medium text-ink">Budget:</span>
- <p className="text-ink">₦{formData.budget ? Number(formData.budget).toLocaleString() : '0'}</p>
+ <p className="text-ink">{fmtNaira(formData.budget)}</p>
  </div>
  <div>
  <span className="font-medium text-ink">Start Date:</span>

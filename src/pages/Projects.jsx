@@ -16,7 +16,7 @@ import {
 import { Link, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { projectAPI } from '../services/api';
-import { collectAreas } from '../utils/statusMap';
+import { collectAreas, areaLabel, areasLabel } from '../utils/statusMap';
 
 const statusMap = {
  NOT_STARTED: 'Not Started',
@@ -109,7 +109,7 @@ export default function Projects() {
  (project.contractor || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
  (project.id || '').toLowerCase().includes(searchTerm.toLowerCase());
  const matchesStatus = statusFilter === 'All Statuses' || project.status === statusFilter;
- // Allow matching if no LGAs selected (show all) or if project's LGA (array or string) intersects with selected list
+ // Show all when no areas selected, otherwise match project.lga (array or string) against the selection
  let matchesLGA = true;
  if (selectedLGAs.length > 0) {
  if (Array.isArray(project.lga)) {
@@ -189,7 +189,7 @@ export default function Projects() {
  ))}
  </select>
 
- {/* LGA Multi-select dropdown */}
+ {/* Area multi-select dropdown */}
  <div className="relative">
  <select
  onChange={() => {}} // Prevent default behavior
@@ -199,7 +199,7 @@ export default function Projects() {
  >
  <option value="">
  {selectedLGAs.length === 0 
- ? 'All LGAs' 
+ ? `All ${areasLabel()}` 
  : `${selectedLGAs.length} selected`}
  </option>
  </select>
@@ -279,7 +279,7 @@ export default function Projects() {
  <tr className="border-b border-border">
  <th className="text-left py-4 px-4 font-semibold text-ink">ID</th>
  <th className="text-left py-4 px-4 font-semibold text-ink">Project Name</th>
- <th className="text-left py-4 px-4 font-semibold text-ink">LGA</th>
+ <th className="text-left py-4 px-4 font-semibold text-ink">{areaLabel()}</th>
  <th className="text-left py-4 px-4 font-semibold text-ink">Contractor</th>
  <th className="text-left py-4 px-4 font-semibold text-ink">Timeline</th>
  <th className="text-left py-4 px-4 font-semibold text-ink">Budget</th>

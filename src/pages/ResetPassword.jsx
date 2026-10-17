@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { authAPI } from '../services/api';
+import { useInstance } from '../contexts/InstanceContext';
 
 export default function ResetPassword() {
+  const instance = useInstance();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const token = params.get('token') || '';
@@ -43,9 +45,9 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen bg-bg text-ink flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-[440px]">
-        <Link to="/" className="inline-flex items-center self-start mb-8" aria-label="Government Project Tracker home">
+        <Link to="/" className="inline-flex items-center self-start mb-8" aria-label={`${instance.name} home`}>
           <span className="bg-white border border-border rounded-xl px-3 py-2 inline-flex items-center shadow-sm">
-            <img src="/logo.png" alt="Government Project Tracker" className="h-9 w-auto" />
+            <img src={instance.logoUrl} alt={instance.name} className="h-9 w-auto" />
           </span>
         </Link>
 

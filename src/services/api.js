@@ -453,7 +453,7 @@ export const publicAPI = {
   getProjectsByCategory: () => 
     apiFetch('/public/projects-by-category'),
 
-  getProjectsByLGA: () => 
+  getProjectsByArea: () => 
     apiFetch('/public/projects-by-lga'),
 
   searchProjects: (query) => 

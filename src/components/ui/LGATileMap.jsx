@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { areaLabel } from '../../utils/statusMap';
 
 // Schematic tile map: one tile per area present in the data, intensity = project count.
 // counts: { 'Area name': 12, ... } — from /api/public/projects-by-lga
@@ -17,7 +18,7 @@ export default function LGATileMap({ counts = {}, basePath = '/public' }) {
   return (
     <div className="bg-white text-slate-900 rounded-[20px] p-6 shadow-[0_24px_48px_rgba(3,24,45,.35)]">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="m-0 font-bold text-lg">Projects by LGA</h2>
+        <h2 className="m-0 font-bold text-lg">Projects by {areaLabel()}</h2>
         <span className="text-xs text-slate-500">Schematic map, not to scale</span>
       </div>
       {areas.length === 0 ? (

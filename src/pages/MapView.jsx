@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { projectAPI, contractorAPI } from '../services/api';
-import { collectAreas } from '../utils/statusMap';
+import { collectAreas, areasLabel, fmtNairaCompact } from '../utils/statusMap';
 
 const STATUS_META = {
  NOT_STARTED: { label: 'Not Started', color: '#6b7280' },
@@ -46,12 +46,7 @@ const PRIORITY_LABELS = {
  LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', CRITICAL: 'Critical',
 };
 
-const formatNaira = (value) => {
- const n = Number(value || 0);
- if (n >= 1e9) return `₦${(n / 1e9).toFixed(1)}B`;
- if (n >= 1e6) return `₦${(n / 1e6).toFixed(0)}M`;
- return `₦${n.toLocaleString()}`;
-};
+const formatNaira = fmtNairaCompact;
 
 const getCoords = (location) => {
  if (!location || typeof location !== 'object') return null;
@@ -69,7 +64,7 @@ export default function MapView() {
  const [selectedProject, setSelectedProject] = useState(null);
  const [categoryFilter, setCategoryFilter] = useState('All Categories');
  const [statusFilter, setStatusFilter] = useState('All Status');
- const [lgaFilter, setLgaFilter] = useState('All LGAs');
+ const [lgaFilter, setLgaFilter] = useState('ALL');
  const [searchTerm, setSearchTerm] = useState('');
  const [mapView, setMapView] = useState('satellite'); // satellite, street, terrain
  const [showLegend, setShowLegend] = useState(true);
@@ -158,7 +153,7 @@ export default function MapView() {
  project.lga.toLowerCase().includes(searchTerm.toLowerCase());
  const matchesCategory = categoryFilter === 'All Categories' || project.categoryLabel === categoryFilter;
  const matchesStatus = statusFilter === 'All Status' || project.statusLabel === statusFilter;
- const matchesLGA = lgaFilter === 'All LGAs' || project.lga.includes(lgaFilter);
+ const matchesLGA = lgaFilter === 'ALL' || project.lga.includes(lgaFilter);
 
  return matchesSearch && matchesCategory && matchesStatus && matchesLGA;
  });
@@ -242,8 +237,8 @@ export default function MapView() {
  onChange={(e) => setLgaFilter(e.target.value)}
  className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
- {['All LGAs', ...collectAreas(projects)].map(lga => (
- <option key={lga} value={lga}>{lga}</option>
+ {['ALL', ...collectAreas(projects)].map(lga => (
+ <option key={lga} value={lga}>{lga === 'ALL' ? `All ${areasLabel()}` : lga}</option>
  ))}
  </select>
  </div>
@@ -438,7 +433,7 @@ export default function MapView() {
  </div>
  <div className="flex items-center justify-between">
  <span className="text-muted">Location:</span>
- <span className="font-semibold">{selectedProject.lga} LGA</span>
+ <span className="font-semibold">{Array.isArray(selectedProject.lga) ? selectedProject.lga.join(', ') : selectedProject.lga}</span>
  </div>
  <div className="flex items-center justify-between">
  <span className="text-muted">Category:</span>

@@ -7,6 +7,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ContractorsProvider } from './contexts/ContractorsContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { InstanceProvider } from './contexts/InstanceContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -169,11 +170,13 @@ function App() {
     <ErrorBoundary>
       <Router>
         <ThemeProvider>
-          <AuthProvider>
+          <InstanceProvider>
+            <AuthProvider>
             <ContractorsProvider>
               <AppContent />
             </ContractorsProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </InstanceProvider>
         </ThemeProvider>
       </Router>
     </ErrorBoundary>

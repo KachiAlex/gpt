@@ -1,11 +1,7 @@
 import { X, FileText, Calendar, User, MapPin, TrendingUp, Shield, AlertTriangle, Star, Clock, CheckCircle } from 'lucide-react';
+import { fmtNairaCompact } from '../../utils/statusMap';
 
-const formatNaira = (value) => {
- const n = Number(value || 0);
- if (n >= 1e9) return `₦${(n / 1e9).toFixed(2)}B`;
- if (n >= 1e6) return `₦${(n / 1e6).toFixed(1)}M`;
- return n > 0 ? `₦${n.toLocaleString()}` : '₦0';
-};
+const formatNaira = fmtNairaCompact;
 
 export default function ReportDetailModal({ report, isOpen, onClose }) {
  if (!isOpen || !report) return null;

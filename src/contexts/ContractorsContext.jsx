@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { contractorAPI, authAPI } from '../services/api';
+import { fmtNaira } from '../utils/statusMap';
 
 const ContractorsContext = createContext();
 
@@ -63,7 +64,7 @@ export const ContractorsProvider = ({ children }) => {
             }
             return new Date().toISOString().split('T')[0];
           })(),
-          totalValue: '₦0',
+          totalValue: fmtNaira(0),
           userId: contractor.userId,
           registrationNumber: contractor.registrationNo,
           isVerified: contractor.isVerified,

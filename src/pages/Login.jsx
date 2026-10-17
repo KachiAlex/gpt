@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { HardHat, ClipboardCheck, BarChart3, Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useInstance } from '../contexts/InstanceContext';
 import { showSuccess } from '../utils/toast';
 
 const roleRedirects = {
@@ -13,6 +14,7 @@ const roleRedirects = {
 
 export default function Login() {
   const { signIn } = useAuth();
+  const instance = useInstance();
   const navigate = useNavigate();
   const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
@@ -48,9 +50,9 @@ export default function Login() {
     <div className="min-h-screen flex flex-col lg:flex-row bg-bg text-ink font-sans">
       {/* Left brand panel */}
       <div className="flex-1 min-w-0 bg-[#0c4a6e] text-white px-8 lg:px-14 py-11 flex flex-col">
-        <Link to="/" className="inline-flex items-center self-start" aria-label="Government Project Tracker home">
+        <Link to="/" className="inline-flex items-center self-start" aria-label={`${instance.name} home`}>
           <span className="bg-white rounded-xl px-3 py-2 inline-flex items-center">
-            <img src="/logo.png" alt="Government Project Tracker" className="h-10 w-auto" />
+            <img src={instance.logoUrl} alt={instance.name} className="h-10 w-auto" />
           </span>
         </Link>
 
@@ -71,7 +73,7 @@ export default function Login() {
             Government staff manage and report
           </li>
         </ul>
-        <div className="mt-14 text-sm text-primary-300">© 2026 Kreatix Technologies</div>
+        <div className="mt-14 text-sm text-primary-300">© 2026 {instance.footerOrg || instance.name}</div>
       </div>
 
       {/* Right form panel */}

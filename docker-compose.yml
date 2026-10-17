@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: gpt-db
+    container_name: ${STACK_PREFIX:-gpt}-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-abt_tracker}
@@ -21,7 +21,7 @@ services:
 
   api:
     build: ./backend
-    container_name: gpt-api
+    container_name: ${STACK_PREFIX:-gpt}-api
     restart: unless-stopped
     depends_on:
       db:
@@ -43,6 +43,21 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_FIRST_NAME: ${ADMIN_FIRST_NAME:-Government}
       ADMIN_LAST_NAME: ${ADMIN_LAST_NAME:-Administrator}
+      INSTANCE_NAME: ${INSTANCE_NAME:-}
+      INSTANCE_LOGO_URL: ${INSTANCE_LOGO_URL:-}
+      INSTANCE_BRAND_COLOR: ${INSTANCE_BRAND_COLOR:-}
+      INSTANCE_SIDEBAR_COLOR: ${INSTANCE_SIDEBAR_COLOR:-}
+      INSTANCE_CURRENCY: ${INSTANCE_CURRENCY:-}
+      INSTANCE_AREA_LABEL: ${INSTANCE_AREA_LABEL:-}
+      INSTANCE_AREA_LABEL_PLURAL: ${INSTANCE_AREA_LABEL_PLURAL:-}
+      INSTANCE_CONTACT_EMAIL: ${INSTANCE_CONTACT_EMAIL:-}
+      INSTANCE_FOOTER_ORG: ${INSTANCE_FOOTER_ORG:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      FRONTEND_URL: ${FRONTEND_URL:-}
     # Loopback-only by default: the VPS fronts this with nginx + TLS.
     ports:
       - "${API_BIND:-127.0.0.1}:${API_PORT:-5055}:5000"

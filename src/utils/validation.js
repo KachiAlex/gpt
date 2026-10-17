@@ -132,7 +132,7 @@ export const validateProjectForm = (formData, step = null) => {
     }
 
     if (!formData.lga || formData.lga.length === 0) {
-      errors.lga = 'At least one LGA is required';
+      errors.lga = 'At least one project area is required';
     }
   }
 

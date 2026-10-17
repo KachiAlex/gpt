@@ -6,7 +6,7 @@ import { dashboardAPI, projectAPI } from '../services/api';
 import StatTile from '../components/ui/StatTile';
 import StatusPill from '../components/ui/StatusPill';
 import ProgressBar from '../components/ui/ProgressBar';
-import { statusKey, statusLabel, fmtNairaCompact, fmtNaira, fmtAgo } from '../utils/statusMap';
+import { statusKey, statusLabel, fmtNairaCompact, fmtNaira, fmtAgo, areaLabel, areasLabel, currency } from '../utils/statusMap';
 
 export default function Dashboard() {
   const { user, canAccessAdminFeatures } = useAuth();
@@ -72,7 +72,7 @@ export default function Dashboard() {
         <StatTile
           label="Total projects"
           value={stats ? String(stats.total) : '…'}
-          note={isEmpty ? 'No projects yet' : `Across ${lgaCount} LGAs`}
+          note={isEmpty ? 'No projects yet' : `Across ${lgaCount} ${areasLabel()}`}
           icon={Folder}
         />
         <StatTile
@@ -85,7 +85,7 @@ export default function Dashboard() {
           label="Total budget"
           value={stats ? fmtNairaCompact(stats.totalBudget) : '…'}
           note={isEmpty ? 'No budgets recorded' : 'Allocated to all projects'}
-          icon={() => <span className="font-extrabold text-lg">₦</span>}
+          icon={() => <span className="font-extrabold text-lg">{currency()}</span>}
         />
         <StatTile
           label="Contractors"
@@ -108,7 +108,7 @@ export default function Dashboard() {
           <div className="mt-7 mx-auto max-w-[760px] grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
             {[
               ['1', 'Add a contractor', 'Register and verify who will deliver the work.', '/contractors/new'],
-              ['2', 'Create the project', 'Set the LGA, budget, dates and milestones.', '/projects/new'],
+              ['2', 'Create the project', `Set the ${areaLabel()}, budget, dates and milestones.`, '/projects/new'],
               ['3', 'Add an M&E officer', 'So submissions can be reviewed and published.', '/me-officers/new'],
             ].map(([n, t, d]) => (
               <div key={n} className="border border-border rounded-[14px] p-[18px]">
@@ -160,7 +160,7 @@ export default function Dashboard() {
                   <thead>
                     <tr className="text-left text-muted text-[13px] tracking-wide uppercase">
                       <th className="px-6 py-2.5 font-semibold">Project</th>
-                      <th className="px-3 py-2.5 font-semibold">LGA</th>
+                      <th className="px-3 py-2.5 font-semibold">{areaLabel()}</th>
                       <th className="px-3 py-2.5 font-semibold">Status</th>
                       <th className="px-3 py-2.5 font-semibold text-right">Budget</th>
                       <th className="pl-3 pr-6 py-2.5 font-semibold w-[130px]">Progress</th>

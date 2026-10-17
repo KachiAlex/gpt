@@ -31,6 +31,7 @@ import {
 } from 'recharts';
 import toast from 'react-hot-toast';
 import { dashboardAPI, contractorAPI, projectAPI, reportAPI } from '../services/api';
+import { areaLabel, fmtNairaCompact, currency } from '../utils/statusMap';
 
 const STATUS_LABELS = {
  NOT_STARTED: 'Not Started',
@@ -55,12 +56,7 @@ const CATEGORY_LABELS = {
  ENVIRONMENT: 'Environment',
 };
 
-const formatNaira = (value) => {
- const n = Number(value || 0);
- if (n >= 1e9) return `₦${(n / 1e9).toFixed(1)}B`;
- if (n >= 1e6) return `₦${(n / 1e6).toFixed(1)}M`;
- return `₦${n.toLocaleString()}`;
-};
+const formatNaira = fmtNairaCompact;
 
 export default function Analytics() {
  const [timeRange, setTimeRange] = useState('6M');
@@ -115,7 +111,7 @@ export default function Analytics() {
  [statusData]
  );
 
- // Budget allocated vs spent per category (₦B)
+ // Budget allocated vs spent per category
  const budgetData = useMemo(
  () =>
  (budgetAnalysis?.byCategory || [])
@@ -335,7 +331,7 @@ export default function Analytics() {
  {/* Budget Analysis */}
  <div className="card">
  <div className="flex items-center justify-between mb-6">
- <h3 className="text-lg font-semibold text-ink">Budget by Category (₦B)</h3>
+ <h3 className="text-lg font-semibold text-ink">Budget by Category ({currency()}B)</h3>
  <div className="flex items-center space-x-2 text-sm">
  <div className="flex items-center">
  <div className="w-3 h-3 bg-brand rounded-full mr-1"></div>
@@ -412,16 +408,16 @@ export default function Analytics() {
  </div>
  </div>
 
- {/* LGA Performance Table */}
+ {/* Area performance table */}
  <div className="card">
  <div className="flex items-center justify-between mb-6">
- <h3 className="text-lg font-semibold text-ink">LGA Performance Overview</h3>
+ <h3 className="text-lg font-semibold text-ink">{areaLabel()} Performance Overview</h3>
  </div>
  <div className="overflow-x-auto">
  <table className="min-w-full">
  <thead>
  <tr className="border-b border-border">
- <th className="text-left py-3 px-4 font-medium text-ink">LGA</th>
+ <th className="text-left py-3 px-4 font-medium text-ink">{areaLabel()}</th>
  <th className="text-left py-3 px-4 font-medium text-ink">Active Projects</th>
  <th className="text-left py-3 px-4 font-medium text-ink">Completion Rate</th>
  <th className="text-left py-3 px-4 font-medium text-ink">Budget</th>
@@ -464,7 +460,7 @@ export default function Analytics() {
  </tbody>
  </table>
  {lgaPerformance.length === 0 && (
- <p className="text-sm text-muted text-center py-8">No LGA data available yet.</p>
+ <p className="text-sm text-muted text-center py-8">No {areaLabel()} data available yet.</p>
  )}
  </div>
  </div>

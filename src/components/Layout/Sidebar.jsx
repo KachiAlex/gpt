@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useInstance } from '../../contexts/InstanceContext';
 import clsx from 'clsx';
 
 const roleLabels = {
@@ -56,6 +57,7 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
+  const instance = useInstance();
 
   const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() || 'U';
   const displayName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User';
@@ -80,9 +82,9 @@ export default function Sidebar() {
         isOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         {/* Logo */}
-        <Link to="/" className="flex items-center px-2.5 py-1" onClick={() => setIsOpen(false)} aria-label="Government Project Tracker home">
+        <Link to="/" className="flex items-center px-2.5 py-1" onClick={() => setIsOpen(false)} aria-label={`${instance.name} home`}>
           <span className="bg-white rounded-xl px-3 py-2 inline-flex items-center">
-            <img src="/logo.png" alt="Government Project Tracker" className="h-9 w-auto" />
+            <img src={instance.logoUrl} alt={instance.name} className="h-9 w-auto" />
           </span>
         </Link>
 
@@ -125,7 +127,7 @@ export default function Sidebar() {
         </nav>
 
         <div className="mt-auto pt-5 px-2.5 text-[12.5px] text-primary-300">
-          © 2026 Kreatix Technologies
+          © 2026 {instance.footerOrg || instance.name}
         </div>
       </div>
 
