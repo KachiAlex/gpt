@@ -97,7 +97,7 @@ router.get('/risk', verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OF
          COUNT(DISTINCT p.id) AS total_projects,
          COUNT(DISTINCT p.id) FILTER (WHERE p.status IN ('DELAYED', 'ON_HOLD')) AS stalled_projects,
          COUNT(DISTINCT m.id) FILTER (
-           WHERE m.due_date < NOW() AND m.status NOT IN ('COMPLETED', 'APPROVED')
+           WHERE m.due_date < NOW() AND m.status <> 'COMPLETED'
          ) AS overdue_milestones,
          COUNT(s.id) AS total_submissions,
          COUNT(s.id) FILTER (WHERE s.status = 'REJECTED') AS rejected_submissions,
