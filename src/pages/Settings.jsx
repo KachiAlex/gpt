@@ -22,17 +22,25 @@ import {
  X,
  AlertTriangle,
  Camera,
- Image
+ Image,
+ GitBranch,
+ Plus,
+ Trash2
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../contexts/AuthContext';
+import { useInstance } from '../contexts/InstanceContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { authAPI, userAPI } from '../services/api';
-import { showError } from '../utils/toast';
+import { authAPI, userAPI, instanceAPI } from '../services/api';
+import { showError, showSuccess } from '../utils/toast';
 
 export default function Settings() {
  const { user, updateUser } = useAuth();
+ const { stages: workflowStages, refreshWorkflow } = useInstance();
  const { theme, setTheme } = useTheme();
+ const isAdmin = user?.role === 'GOVERNMENT_ADMIN';
+ const [wfStages, setWfStages] = useState([]);
+ const [wfSaving, setWfSaving] = useState(false);
  const fileInputRef = useRef(null);
  const [activeTab, setActiveTab] = useState('profile');
  const [showPassword, setShowPassword] = useState(false);
@@ -93,11 +101,51 @@ export default function Settings() {
  }
  }, [user, setTheme]);
 
+ // Editable mid-chain stages (between Submitted and the Approved/Rejected terminals)
+ useEffect(() => {
+   setWfStages(
+     workflowStages
+       .filter((s) => !s.isTerminal && !['DRAFT', 'SUBMITTED'].includes(s.key))
+       .map((s) => ({ key: s.key, label: s.label, allowedRoles: [...s.allowedRoles] }))
+   );
+ }, [workflowStages]);
+
+ const REVIEW_ROLES = [
+   ['ME_OFFICER', 'M&E Officer'],
+   ['GOVERNMENT_OFFICER', 'Government Officer'],
+   ['GOVERNMENT_ADMIN', 'Administrator'],
+ ];
+
+ const wfToggleRole = (idx, role) =>
+   setWfStages((prev) => prev.map((s, i) =>
+     i === idx
+       ? { ...s, allowedRoles: s.allowedRoles.includes(role) ? s.allowedRoles.filter((r) => r !== role) : [...s.allowedRoles, role] }
+       : s
+   ));
+
+ const saveWorkflow = async () => {
+   if (wfStages.some((s) => !s.label.trim() || s.allowedRoles.length === 0)) {
+     showError('Every stage needs a label and at least one approving role.');
+     return;
+   }
+   setWfSaving(true);
+   try {
+     await instanceAPI.updateWorkflow(wfStages);
+     await refreshWorkflow();
+     showSuccess('Review workflow updated');
+   } catch (e) {
+     showError(e.message || 'Failed to save workflow');
+   } finally {
+     setWfSaving(false);
+   }
+ };
+
  const tabs = [
  { id: 'profile', name: 'Profile', icon: User },
  { id: 'notifications', name: 'Notifications', icon: Bell },
  { id: 'security', name: 'Security', icon: Shield },
  { id: 'appearance', name: 'Appearance', icon: Palette },
+ ...(isAdmin ? [{ id: 'workflow', name: 'Workflow', icon: GitBranch }] : []),
  { id: 'system', name: 'System', icon: Database }
  ];
 
@@ -826,6 +874,77 @@ export default function Settings() {
  )}
 
  {/* System Settings */}
+ {/* Review workflow editor (admin) */}
+ {activeTab === 'workflow' && isAdmin && (
+ <div className="space-y-6">
+ <div className="card">
+ <h3 className="text-lg font-semibold text-ink mb-2">Submission review workflow</h3>
+ <p className="text-sm text-muted mb-6">
+   Stages a contractor submission passes through between <strong>Submitted</strong> and <strong>Approved</strong>.
+   Each stage lists the roles allowed to move a submission into it. Rejected is always available to those roles.
+ </p>
+
+ <div className="space-y-3">
+   {wfStages.map((stage, idx) => (
+     <div key={stage.key || idx} className="flex flex-wrap items-center gap-3 p-4 border border-border rounded-xl">
+       <span className="text-xs font-bold text-muted w-6">{idx + 2}.</span>
+       <input
+         className="input flex-1 min-w-[160px]"
+         value={stage.label}
+         onChange={(e) => setWfStages((prev) => prev.map((s, i) => (i === idx ? { ...s, label: e.target.value } : s)))}
+         placeholder="Stage name"
+         aria-label={`Stage ${idx + 1} name`}
+       />
+       <div className="flex flex-wrap gap-3">
+         {REVIEW_ROLES.map(([role, label]) => (
+           <label key={role} className="flex items-center gap-1.5 text-sm text-ink">
+             <input
+               type="checkbox"
+               checked={stage.allowedRoles.includes(role)}
+               onChange={() => wfToggleRole(idx, role)}
+               className="accent-primary-600"
+             />
+             {label}
+           </label>
+         ))}
+       </div>
+       <button
+         type="button"
+         onClick={() => setWfStages((prev) => prev.filter((_, i) => i !== idx))}
+         className="text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 p-2 rounded-lg"
+         aria-label={`Remove stage ${stage.label}`}
+       >
+         <Trash2 className="w-4 h-4" />
+       </button>
+     </div>
+   ))}
+
+   {wfStages.length === 0 && (
+     <p className="text-sm text-muted p-4 border border-dashed border-border rounded-xl">
+       No intermediate stages — submissions go straight from Submitted to Approved.
+     </p>
+   )}
+
+   <button
+     type="button"
+     onClick={() => setWfStages((prev) => [...prev, { key: '', label: '', allowedRoles: ['ME_OFFICER'] }])}
+     className="btn-secondary"
+   >
+     <Plus className="h-4 w-4 mr-2" />
+     Add stage
+   </button>
+ </div>
+
+ <div className="mt-6 flex justify-end">
+   <button type="button" onClick={saveWorkflow} disabled={wfSaving} className="btn-primary">
+     <Save className="h-4 w-4 mr-2" />
+     {wfSaving ? 'Saving…' : 'Save workflow'}
+   </button>
+ </div>
+ </div>
+ </div>
+ )}
+
  {activeTab === 'system' && (
  <div className="space-y-6">
  <div className="card">

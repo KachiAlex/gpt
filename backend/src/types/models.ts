@@ -249,6 +249,7 @@ export interface DbSubmission {
   estimatedValue?: number | null;
   priority: string;
   status: string;
+  stage: string;
   qualityScore?: number | null;
   safetyCompliance?: string | null;
   weatherImpact?: string | null;

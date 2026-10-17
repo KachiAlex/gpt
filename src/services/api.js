@@ -410,6 +410,12 @@ export const submissionAPI = {
       body: JSON.stringify(reviewData),
     }),
 
+  transition: (id, toStage, comment) =>
+    apiFetch(`/submissions/${id}/transition`, {
+      method: 'POST',
+      body: JSON.stringify({ toStage, comment }),
+    }),
+
   delete: (id) => 
     apiFetch(`/submissions/${id}`, {
       method: 'DELETE',
@@ -540,6 +546,27 @@ export const documentAPI = {
     downloadFile(`/files/download/${id}`, filename),
 };
 
+// Instance (white-label config + workflow)
+export const instanceAPI = {
+  get: () =>
+    apiFetch('/instance'),
+
+  update: (settings) =>
+    apiFetch('/instance', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+
+  getWorkflow: () =>
+    apiFetch('/instance/workflow'),
+
+  updateWorkflow: (stages) =>
+    apiFetch('/instance/workflow', {
+      method: 'PUT',
+      body: JSON.stringify({ stages }),
+    }),
+};
+
 // Export everything as default as well
 export default {
   authAPI,
@@ -551,5 +578,6 @@ export default {
   reportAPI,
   userAPI,
   documentAPI,
+  instanceAPI,
 };
 

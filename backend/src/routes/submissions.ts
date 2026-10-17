@@ -406,6 +406,59 @@ router.put('/:id/review', verifyToken, requireMEOfficer, async (req: Request, re
 });
 
 /**
+ * POST /api/submissions/:id/transition
+ * Move a submission to the next workflow stage (or REJECTED).
+ * Body: { toStage: string, comment?: string }
+ * Role and adjacency are validated against the configured stage chain.
+ */
+router.post('/:id/transition', verifyToken, async (req: Request, res: Response) => {
+  try {
+    const { toStage, comment } = req.body;
+    if (!toStage || typeof toStage !== 'string') {
+      return res.status(400).json({ success: false, message: 'toStage is required' });
+    }
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const updated = await submissionRepository.transition(
+      req.params.id, req.user.userId, req.user.role, toStage, comment
+    );
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
+
+    try {
+      const io = req.app.get('io');
+      const approved = updated.status === SubmissionStatus.APPROVED;
+      await notificationRepository.create({
+        userId: updated.submittedBy,
+        type: approved ? NotificationType.APPROVAL : NotificationType.REJECTION,
+        title: approved ? 'Submission approved' : `Submission ${updated.stage.toLowerCase().replace('_', ' ')}`,
+        message: `Your submission "${updated.title}" moved to ${updated.stage.toLowerCase().replace('_', ' ')}${comment ? `: ${comment}` : ''}`,
+        data: { submissionId: updated.id, projectId: updated.projectId, stage: updated.stage, status: updated.status },
+        isUrgent: updated.status === 'REJECTED',
+      });
+      io?.to(`user-${updated.submittedBy}`).emit('submission-reviewed', {
+        submissionId: updated.id,
+        stage: updated.stage,
+        status: updated.status,
+      });
+    } catch (notifyError) {
+      console.error('Transition notification error:', notifyError);
+    }
+
+    return res.json({ success: true, message: `Submission moved to ${updated.stage}`, data: { submission: updated } });
+  } catch (error: any) {
+    if (error.name === 'WorkflowError' || error.status) {
+      return res.status(error.status || 400).json({ success: false, message: error.message });
+    }
+    console.error('Transition submission error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to transition submission' });
+  }
+});
+
+/**
  * DELETE /api/submissions/:id
  * Delete submission
  */

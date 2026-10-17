@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { query, rowToCamelCase } from '../config/database';
+import { query, rowToCamelCase, getClient } from '../config/database';
 import { authenticate, requireRoles } from '../middleware/auth';
+import { getStages } from '../services/workflowService';
 
 const router = Router();
 
@@ -103,6 +104,102 @@ router.put('/', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Requ
   } catch (error: any) {
     console.error('Update instance config error:', error);
     return res.status(500).json({ success: false, message: 'Failed to update instance config' });
+  }
+});
+
+/**
+ * GET /api/instance/workflow
+ * Public — the configured submission review chain for this deployment.
+ */
+router.get('/workflow', async (_req: Request, res: Response) => {
+  try {
+    return res.json({ success: true, data: { stages: await getStages() } });
+  } catch (error: any) {
+    // Pre-migration databases: fall back to the built-in chain
+    return res.json({
+      success: true,
+      data: {
+        stages: [
+          { key: 'DRAFT', label: 'Draft', orderIndex: 0, allowedRoles: ['CONTRACTOR'], mapsToStatus: 'PENDING', isTerminal: false, isSystem: true },
+          { key: 'SUBMITTED', label: 'Submitted', orderIndex: 1, allowedRoles: ['CONTRACTOR'], mapsToStatus: 'PENDING', isTerminal: false, isSystem: true },
+          { key: 'UNDER_REVIEW', label: 'Under review', orderIndex: 2, allowedRoles: ['ME_OFFICER', 'GOVERNMENT_ADMIN'], mapsToStatus: 'UNDER_REVIEW', isTerminal: false, isSystem: false },
+          { key: 'APPROVED', label: 'Approved', orderIndex: 3, allowedRoles: ['ME_OFFICER', 'GOVERNMENT_ADMIN'], mapsToStatus: 'APPROVED', isTerminal: true, isSystem: true },
+          { key: 'REJECTED', label: 'Rejected', orderIndex: 4, allowedRoles: ['ME_OFFICER', 'GOVERNMENT_ADMIN'], mapsToStatus: 'REJECTED', isTerminal: true, isSystem: true },
+        ],
+      },
+    });
+  }
+});
+
+/**
+ * PUT /api/instance/workflow  (admin only)
+ * Replace the forward review chain. Body: { stages: [{ key?, label, allowedRoles }] }
+ * System stages (SUBMITTED entry point, APPROVED/REJECTED terminals) are kept;
+ * custom mid-stages are inserted between SUBMITTED and APPROVED.
+ */
+router.put('/workflow', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Request, res: Response) => {
+  const incoming = Array.isArray(req.body?.stages) ? req.body.stages : null;
+  if (!incoming) {
+    return res.status(400).json({ success: false, message: 'stages array is required' });
+  }
+  for (const s of incoming) {
+    if (!s?.label || typeof s.label !== 'string') {
+      return res.status(400).json({ success: false, message: 'Each stage needs a label' });
+    }
+    if (!Array.isArray(s.allowedRoles)) {
+      return res.status(400).json({ success: false, message: 'Each stage needs allowedRoles[]' });
+    }
+  }
+
+  const slug = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const existing = await client.query('SELECT * FROM workflow_stages');
+    const byKey = new Map(existing.rows.map((r: any) => [r.key, r]));
+
+    // Payload order defines the chain between SUBMITTED and APPROVED
+    let order = 2;
+    const seen = new Set<string>();
+    for (const s of incoming) {
+      const key = s.key && byKey.has(s.key) ? s.key : slug(s.key || s.label);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      if (byKey.has(key)) {
+        await client.query(
+          `UPDATE workflow_stages SET label = $2::text, allowed_roles = $3::text[], order_index = $4::int WHERE key = $1::text`,
+          [key, s.label, s.allowedRoles, order]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO workflow_stages (key, label, order_index, allowed_roles, maps_to_status, is_terminal, is_system)
+           VALUES ($1::text, $2::text, $3::int, $4::text[], 'UNDER_REVIEW', FALSE, FALSE)`,
+          [key, s.label, order, s.allowedRoles]
+        );
+      }
+      order += 1;
+    }
+
+    // Delete custom stages that were removed (never system ones)
+    for (const r of existing.rows as any[]) {
+      if (!r.is_system && !seen.has(r.key)) {
+        await client.query(`UPDATE submissions SET stage = 'UNDER_REVIEW' WHERE stage = $1`, [r.key]);
+        await client.query(`DELETE FROM workflow_stages WHERE key = $1`, [r.key]);
+      }
+    }
+
+    // Terminals always sit after the forward chain
+    await client.query(`UPDATE workflow_stages SET order_index = $1 WHERE key = 'APPROVED'`, [order]);
+    await client.query(`UPDATE workflow_stages SET order_index = $1 WHERE key = 'REJECTED'`, [order + 1]);
+
+    await client.query('COMMIT');
+    return res.json({ success: true, data: { stages: await getStages() } });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Update workflow error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update workflow' });
+  } finally {
+    client.release();
   }
 });
 

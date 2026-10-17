@@ -56,3 +56,45 @@ export const loadInstance = () => {
     .catch(() => config);
   return loadPromise;
 };
+
+// ---- Workflow stages (the configurable review chain) ----
+
+const DEFAULT_STAGES = [
+  { key: 'DRAFT', label: 'Draft', orderIndex: 0, allowedRoles: ['CONTRACTOR'], mapsToStatus: 'PENDING', isTerminal: false, isSystem: true },
+  { key: 'SUBMITTED', label: 'Submitted', orderIndex: 1, allowedRoles: ['CONTRACTOR'], mapsToStatus: 'PENDING', isTerminal: false, isSystem: true },
+  { key: 'UNDER_REVIEW', label: 'Under review', orderIndex: 2, allowedRoles: ['ME_OFFICER', 'GOVERNMENT_ADMIN'], mapsToStatus: 'UNDER_REVIEW', isTerminal: false, isSystem: false },
+  { key: 'APPROVED', label: 'Approved', orderIndex: 3, allowedRoles: ['ME_OFFICER', 'GOVERNMENT_ADMIN'], mapsToStatus: 'APPROVED', isTerminal: true, isSystem: true },
+  { key: 'REJECTED', label: 'Rejected', orderIndex: 4, allowedRoles: ['ME_OFFICER', 'GOVERNMENT_ADMIN'], mapsToStatus: 'REJECTED', isTerminal: true, isSystem: true },
+];
+
+let stages = DEFAULT_STAGES;
+let stagesPromise = null;
+
+export const getStages = () => stages;
+
+export const stageLabel = (key) => stages.find((s) => s.key === key)?.label || key || '—';
+
+// The stages a role may move a submission into, and the label of the
+// configured next step for a given current stage.
+export const forwardStages = () => stages.filter((s) => s.mapsToStatus !== 'REJECTED');
+export const nextStage = (currentKey) => {
+  const chain = forwardStages();
+  const i = chain.findIndex((s) => s.key === currentKey);
+  return i >= 0 ? chain[i + 1] || null : null;
+};
+export const canActOnStage = (stageKey, role) =>
+  !!stages.find((s) => s.key === stageKey)?.allowedRoles?.includes(role);
+
+export const loadStages = (force = false) => {
+  if (stagesPromise && !force) return stagesPromise;
+  stagesPromise = fetch(`${API_BASE}/instance/workflow`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((res) => {
+      if (res?.success && Array.isArray(res.data?.stages) && res.data.stages.length) {
+        stages = res.data.stages;
+      }
+      return stages;
+    })
+    .catch(() => stages);
+  return stagesPromise;
+};

@@ -3,8 +3,10 @@ import { Check, X, FileText, ClipboardCheck, Inbox } from 'lucide-react';
 import clsx from 'clsx';
 import { submissionAPI, documentAPI, projectAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useInstance } from '../contexts/InstanceContext';
 import EmptyState from '../components/ui/EmptyState';
 import { statusLabel, fmtNairaCompact, fmtAgo } from '../utils/statusMap';
+import { stageLabel } from '../services/instance';
 import { showSuccess, showError } from '../utils/toast';
 
 const QUEUE_STATUSES = ['PENDING', 'UNDER_REVIEW', 'REQUIRES_CLARIFICATION'];
@@ -17,6 +19,7 @@ const subStatusClass = (s) =>
 
 export default function MEDashboard() {
   const { user } = useAuth();
+  const { stages = [] } = useInstance();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
@@ -78,7 +81,17 @@ export default function MEDashboard() {
   }, [selectedId]);
 
   const selected = submissions.find((s) => s.id === selectedId) || null;
-  const undecided = selected && QUEUE_STATUSES.includes(selected.status);
+
+  // Workflow-driven: resolve the submission's stage and the configured next step
+  const chain = stages.filter((s) => s.mapsToStatus !== 'REJECTED');
+  const stageOf = (s) =>
+    s.stage || (s.status === 'APPROVED' ? 'APPROVED' : s.status === 'REJECTED' ? 'REJECTED' : 'SUBMITTED');
+  const isTerminal = (s) =>
+    stages.find((st) => st.key === stageOf(s))?.isTerminal ?? ['APPROVED', 'REJECTED', 'FLAGGED'].includes(s.status);
+  const undecided = selected && !isTerminal(selected);
+  const next = selected && undecided
+    ? chain[chain.findIndex((s) => s.key === stageOf(selected)) + 1] || null
+    : null;
 
   const stats = useMemo(() => {
     const pending = submissions.filter((s) => QUEUE_STATUSES.includes(s.status)).length;
@@ -91,22 +104,22 @@ export default function MEDashboard() {
     return { pending, reviewedWeek, rate };
   }, [submissions]);
 
-  const review = async (action) => {
+  const act = async (toStage) => {
     if (!selected) return;
-    if (action === 'REJECTED' && !comments.trim()) {
+    if (toStage === 'REJECTED' && !comments.trim()) {
       showError('Add a comment explaining what to fix before returning.');
       return;
     }
     setActing(true);
     try {
-      const res = await submissionAPI.review(selected.id, { action, comments: comments.trim() || undefined });
+      const res = await submissionAPI.transition(selected.id, toStage, comments.trim() || undefined);
       if (res?.success) {
-        showSuccess(action === 'APPROVED' ? 'Submission approved' : 'Returned to the contractor');
+        showSuccess(toStage === 'APPROVED' ? 'Submission approved' : toStage === 'REJECTED' ? 'Returned to the contractor' : `Moved to ${toStage.toLowerCase().replace('_', ' ')}`);
         setComments('');
         await load();
       }
     } catch (e) {
-      showError(e.message || 'Review failed');
+      showError(e.message || 'Action failed');
     } finally {
       setActing(false);
     }
@@ -167,7 +180,7 @@ export default function MEDashboard() {
                 >
                   <span className="flex items-center justify-between gap-2.5">
                     <span className="font-bold truncate">{s.project?.name || 'Project'}</span>
-                    <span className={clsx('flex-none', subStatusClass(s.status))}>{DECIDED[s.status] || statusLabel(s.status)}</span>
+                    <span className={clsx('flex-none', subStatusClass(s.status))}>{s.stage ? stageLabel(s.stage) : DECIDED[s.status] || statusLabel(s.status)}</span>
                   </span>
                   <span className="text-sm text-muted truncate">
                     {s.milestone?.name || s.title} · {s.contractor?.companyName || '—'}
@@ -252,18 +265,20 @@ export default function MEDashboard() {
                       className="input mt-2 w-full h-auto py-3 resize-y"
                     />
                     <div className="mt-3.5 flex flex-wrap gap-3">
+                      {next && (
+                        <button
+                          type="button"
+                          onClick={() => act(next.key)}
+                          disabled={acting}
+                          className="min-h-[50px] inline-flex items-center gap-2 px-[26px] rounded-xl bg-green-700 text-white text-base font-bold hover:bg-green-800 disabled:opacity-50"
+                        >
+                          <Check className="w-5 h-5" strokeWidth={2.5} />
+                          {next.mapsToStatus === 'APPROVED' ? 'Approve' : `Move to ${next.label.toLowerCase()}`}
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => review('APPROVED')}
-                        disabled={acting}
-                        className="min-h-[50px] inline-flex items-center gap-2 px-[26px] rounded-xl bg-green-700 text-white text-base font-bold hover:bg-green-800 disabled:opacity-50"
-                      >
-                        <Check className="w-5 h-5" strokeWidth={2.5} />
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => review('REJECTED')}
+                        onClick={() => act('REJECTED')}
                         disabled={acting}
                         className="min-h-[50px] inline-flex items-center gap-2 px-[26px] rounded-xl border-[1.5px] border-red-800 bg-surface text-red-900 dark:text-red-300 text-base font-bold hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
                       >

@@ -1,4 +1,5 @@
 import { getClient, objectToSnakeCase, query, rowToCamelCase } from '../config/database';
+import { transitionSubmission } from '../services/workflowService';
 import {
   CreateSubmissionInput,
   DbApproval,
@@ -14,7 +15,7 @@ import { SubmissionStatus } from '../types/domain';
 const submissionColumns = `
   s.id, s.project_id, s.milestone_id, s.contractor_id, s.submitted_by,
   s.type, s.title, s.description, s.progress, s.estimated_value,
-  s.priority, s.status, s.quality_score, s.safety_compliance,
+  s.priority, s.status, s.stage, s.quality_score, s.safety_compliance,
   s.weather_impact, s.media_count, s.due_date, s.submitted_at,
   s.reviewed_at, s.reviewed_by, s.review_comments, s.created_at, s.updated_at
 `;
@@ -67,6 +68,7 @@ const mapSubmission = (row: any): DbSubmission => {
       data.estimatedValue !== undefined && data.estimatedValue !== null ? Number(data.estimatedValue) : null,
     priority: data.priority,
     status: data.status,
+    stage: data.stage ?? null,
     qualityScore:
       data.qualityScore !== undefined && data.qualityScore !== null ? Number(data.qualityScore) : null,
     safetyCompliance: data.safetyCompliance ?? null,
@@ -461,6 +463,97 @@ export const submissionRepository = {
 
       await client.query('COMMIT');
       return mapSubmission(updateResult.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  /**
+   * Move a submission through the configured workflow. Validates the
+   * transition (role + adjacency) via workflowService, records history,
+   * syncs the coarse status, and runs the milestone/project cascade when
+   * the target stage maps to APPROVED — all atomically.
+   */
+  async transition(
+    id: string,
+    actorId: string,
+    actorRole: string,
+    toStage: string,
+    comment?: string
+  ): Promise<DbSubmission | null> {
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+
+      const lockResult = await client.query(
+        `SELECT id, stage, status, project_id, milestone_id, contractor_id, submitted_by, title
+         FROM submissions WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      if (lockResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      const sub = rowToCamelCase(lockResult.rows[0]);
+
+      const { stage } = await transitionSubmission(client, sub as any, toStage, actorId, actorRole, comment);
+      const outcome = stage.mapsToStatus;
+
+      // Terminal outcomes carry the review metadata + approvals audit row
+      if (outcome === 'APPROVED' || outcome === 'REJECTED') {
+        await client.query(
+          `UPDATE submissions SET reviewed_at = NOW(), reviewed_by = $2, review_comments = $3 WHERE id = $1`,
+          [id, actorId, comment ?? null]
+        );
+        await client.query(
+          `INSERT INTO approvals (submission_id, reviewer_id, action, comments) VALUES ($1, $2, $3, $4)`,
+          [id, actorId, outcome, comment ?? null]
+        );
+      }
+
+      if (outcome === 'APPROVED' && sub.milestoneId) {
+        await client.query(
+          `UPDATE milestones
+           SET status = 'COMPLETED', completed_date = NOW(), progress = 100, updated_at = NOW()
+           WHERE id = $1 AND project_id = $2`,
+          [sub.milestoneId, sub.projectId]
+        );
+      }
+
+      if (outcome === 'APPROVED' || outcome === 'REJECTED') {
+        await client.query(
+          `WITH ms AS (
+             SELECT COALESCE(AVG(progress), 0) AS avg_progress,
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE status = 'COMPLETED') AS done
+             FROM milestones
+             WHERE project_id = $1 AND status <> 'CANCELLED'
+           )
+           UPDATE projects p
+           SET progress = ROUND(ms.avg_progress)::int,
+               status = CASE
+                 WHEN ms.total > 0 AND ms.done = ms.total THEN 'COMPLETED'
+                 WHEN p.status = 'COMPLETED' AND ms.total > 0 THEN 'IN_PROGRESS'
+                 ELSE p.status
+               END,
+               actual_end_date = CASE
+                 WHEN ms.total > 0 AND ms.done = ms.total THEN COALESCE(p.actual_end_date, NOW())
+                 ELSE p.actual_end_date
+               END,
+               updated_at = NOW()
+           FROM ms
+           WHERE p.id = $1 AND ms.total > 0`,
+          [sub.projectId]
+        );
+      }
+
+      const refreshed = await client.query(`SELECT ${submissionColumns} FROM submissions s WHERE s.id = $1`, [id]);
+
+      await client.query('COMMIT');
+      return mapSubmission(refreshed.rows[0]);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
