@@ -28,6 +28,7 @@ import clsx from 'clsx';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { authAPI, userAPI } from '../services/api';
+import { showError } from '../utils/toast';
 
 export default function Settings() {
  const { user, updateUser } = useAuth();
@@ -120,14 +121,14 @@ export default function Settings() {
  // Validate file type
  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
  if (!allowedTypes.includes(file.type)) {
- alert('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+ showError('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
  return;
  }
 
  // Validate file size (5MB max)
  const maxSize = 5 * 1024 * 1024; // 5MB
  if (file.size > maxSize) {
- alert('File size must be less than 5MB');
+ showError('File size must be less than 5MB');
  return;
  }
 
@@ -206,7 +207,7 @@ export default function Settings() {
  
  } catch (error) {
  console.error('Error updating profile:', error);
- alert(error.message || 'Failed to update profile. Please try again.');
+ showError(error.message || 'Failed to update profile. Please try again.');
  } finally {
  setSaving(false);
  }

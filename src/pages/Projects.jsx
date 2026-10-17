@@ -13,7 +13,7 @@ import {
  FolderOpen,
  AlertTriangle
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { projectAPI } from '../services/api';
 
@@ -38,7 +38,8 @@ const statusStyles = {
 };
 
 export default function Projects() {
- const [searchTerm, setSearchTerm] = useState('');
+ const [searchParams] = useSearchParams();
+ const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
  const [statusFilter, setStatusFilter] = useState('All Statuses');
  const [selectedLGAs, setSelectedLGAs] = useState([]); // Changed to array for multiple selection
  const [showFilters, setShowFilters] = useState(false);
@@ -46,6 +47,12 @@ export default function Projects() {
  const [projects, setProjects] = useState([]);
  const [loading, setLoading] = useState(true);
  const [error, setError] = useState('');
+
+ // Sync search box when arriving via header search (/projects?search=...)
+ useEffect(() => {
+ const q = searchParams.get('search');
+ if (q !== null) setSearchTerm(q);
+ }, [searchParams]);
 
  useEffect(() => {
  let isMounted = true;
@@ -97,8 +104,8 @@ export default function Projects() {
 
  const filteredProjects = projects.filter(project => {
  const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
- project.contractor.toLowerCase().includes(searchTerm.toLowerCase()) ||
- project.id.toLowerCase().includes(searchTerm.toLowerCase());
+ (project.contractor || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+ (project.id || '').toLowerCase().includes(searchTerm.toLowerCase());
  const matchesStatus = statusFilter === 'All Statuses' || project.status === statusFilter;
  // Allow matching if no LGAs selected (show all) or if project's LGA (array or string) intersects with selected list
  let matchesLGA = true;

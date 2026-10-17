@@ -9,6 +9,8 @@ import { ContractorsProvider } from './contexts/ContractorsContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
@@ -43,7 +45,7 @@ function AppContent() {
   const location = useLocation();
 
   // Standalone pages render without the app shell (sidebar/header)
-  const isStandaloneRoute = ['/', '/public', '/login'].includes(location.pathname);
+  const isStandaloneRoute = ['/', '/public', '/login', '/forgot-password', '/reset-password'].includes(location.pathname);
 
   if (isStandaloneRoute) {
     return (
@@ -51,6 +53,8 @@ function AppContent() {
         <Route path="/" element={<Home />} />
         <Route path="/public" element={<PublicPortal />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     );
   }

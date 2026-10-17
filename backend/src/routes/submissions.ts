@@ -359,12 +359,17 @@ router.put('/:id/review', verifyToken, requireMEOfficer, async (req: Request, re
       });
     }
 
-    const updatedSubmission = await submissionRepository.review(id, req.user.userId, {
-      action,
-      comments,
-      qualityScore: qualityScore !== undefined ? Number(qualityScore) : null,
-      safetyCompliance: safetyCompliance || null,
-    });
+    const updatedSubmission = await submissionRepository.review(
+      id,
+      req.user.userId,
+      {
+        action,
+        comments,
+        qualityScore: qualityScore !== undefined ? Number(qualityScore) : null,
+        safetyCompliance: safetyCompliance || null,
+      },
+      { projectId: submission.projectId, milestoneId: submission.milestoneId }
+    );
 
     // Notify the submitting contractor user
     try {

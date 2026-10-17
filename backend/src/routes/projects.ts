@@ -262,6 +262,117 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
   }
 });
 
+const canManageProject = (req: Request, project: { projectManagerId?: string | null }): boolean => {
+  if (!req.user) return false;
+  return req.user.role === 'GOVERNMENT_ADMIN' || project.projectManagerId === req.user.userId;
+};
+
+/**
+ * POST /api/projects/:id/milestones
+ * Add a milestone (Admin or assigned project manager)
+ */
+router.post('/:id/milestones', verifyToken, async (req: Request, res: Response) => {
+  try {
+    const project = await projectRepository.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    if (!canManageProject(req, project)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to manage this project' });
+    }
+
+    const { name, description, dueDate, budget, orderIndex } = req.body;
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ success: false, message: 'Milestone name is required' });
+    }
+
+    const milestone = await projectRepository.createMilestone(project.id, {
+      name,
+      description,
+      dueDate: dueDate ? new Date(dueDate) : null,
+      budget: budget !== undefined && budget !== null ? Number(budget) : null,
+      orderIndex: orderIndex !== undefined ? Number(orderIndex) : undefined,
+    });
+    await projectRepository.recomputeProjectProgress(project.id);
+
+    return res.status(201).json({ success: true, data: { milestone } });
+  } catch (error: any) {
+    console.error('Create milestone error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to create milestone' });
+  }
+});
+
+/**
+ * PUT /api/projects/:id/milestones/:milestoneId
+ * Update a milestone (Admin or assigned project manager)
+ */
+router.put('/:id/milestones/:milestoneId', verifyToken, async (req: Request, res: Response) => {
+  try {
+    const project = await projectRepository.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    if (!canManageProject(req, project)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to manage this project' });
+    }
+
+    const milestone = await projectRepository.findMilestoneById(req.params.milestoneId);
+    if (!milestone || milestone.projectId !== project.id) {
+      return res.status(404).json({ success: false, message: 'Milestone not found' });
+    }
+
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(req.body)) {
+      if (value === undefined) continue;
+      if (key === 'dueDate' || key === 'completedDate') {
+        updates[key] = value ? new Date(value as string) : null;
+      } else if (key === 'progress' || key === 'budget' || key === 'orderIndex') {
+        const n = Number(value);
+        updates[key] = Number.isNaN(n) ? undefined : n;
+      } else if (['name', 'description', 'status'].includes(key)) {
+        updates[key] = value;
+      }
+    }
+
+    const updated = await projectRepository.updateMilestone(milestone.id, updates as any);
+    await projectRepository.recomputeProjectProgress(project.id);
+
+    return res.json({ success: true, data: { milestone: updated } });
+  } catch (error: any) {
+    console.error('Update milestone error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update milestone' });
+  }
+});
+
+/**
+ * DELETE /api/projects/:id/milestones/:milestoneId
+ * Delete a milestone (Admin or assigned project manager)
+ */
+router.delete('/:id/milestones/:milestoneId', verifyToken, async (req: Request, res: Response) => {
+  try {
+    const project = await projectRepository.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    if (!canManageProject(req, project)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to manage this project' });
+    }
+
+    const milestone = await projectRepository.findMilestoneById(req.params.milestoneId);
+    if (!milestone || milestone.projectId !== project.id) {
+      return res.status(404).json({ success: false, message: 'Milestone not found' });
+    }
+
+    await projectRepository.deleteMilestone(milestone.id);
+    await projectRepository.recomputeProjectProgress(project.id);
+
+    return res.json({ success: true, message: 'Milestone deleted' });
+  } catch (error: any) {
+    console.error('Delete milestone error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete milestone' });
+  }
+});
+
 /**
  * DELETE /api/projects/:id
  * Delete project (Admin only)

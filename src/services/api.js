@@ -270,6 +270,18 @@ export const authAPI = {
       method: 'PUT',
       body: JSON.stringify(passwordData),
     }),
+
+  forgotPassword: (email) =>
+    apiFetch('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (data) =>
+    apiFetch('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 // ============================================================================
@@ -304,6 +316,23 @@ export const projectAPI = {
 
   getStats: () => 
     apiFetch('/projects/stats'),
+
+  addMilestone: (projectId, milestoneData) =>
+    apiFetch(`/projects/${projectId}/milestones`, {
+      method: 'POST',
+      body: JSON.stringify(milestoneData),
+    }),
+
+  updateMilestone: (projectId, milestoneId, milestoneData) =>
+    apiFetch(`/projects/${projectId}/milestones/${milestoneId}`, {
+      method: 'PUT',
+      body: JSON.stringify(milestoneData),
+    }),
+
+  deleteMilestone: (projectId, milestoneId) =>
+    apiFetch(`/projects/${projectId}/milestones/${milestoneId}`, {
+      method: 'DELETE',
+    }),
 };
 
 // ============================================================================

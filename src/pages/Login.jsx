@@ -110,7 +110,7 @@ export default function Login() {
             <div className="flex flex-col gap-1.5">
               <div className="flex items-baseline justify-between">
                 <label htmlFor="lg-pass" className="text-sm font-semibold">Password</label>
-                <button type="button" className="text-sm font-semibold text-soft-fg">Forgot password?</button>
+                <Link to="/forgot-password" className="text-sm font-semibold text-soft-fg">Forgot password?</Link>
               </div>
               <div className="relative">
                 <input

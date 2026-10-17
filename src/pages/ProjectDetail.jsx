@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Pencil, FileText, Check, X, HardHat, ShieldCheck, Download } from 'lucide-react';
+import { Pencil, FileText, Check, X, HardHat, ShieldCheck, Download, Plus, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import { projectAPI, contractorAPI, documentAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,6 +33,10 @@ export default function ProjectDetail() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [milestoneModal, setMilestoneModal] = useState(null); // { mode: 'create'|'edit', milestone? }
+  const [milestoneForm, setMilestoneForm] = useState({});
+  const [savingMilestone, setSavingMilestone] = useState(false);
+  const [deletingMilestone, setDeletingMilestone] = useState(null);
 
   const load = async () => {
     try {
@@ -78,7 +82,7 @@ export default function ProjectDetail() {
     );
   }
 
-  const milestones = (project.milestones || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const milestones = (project.milestones || []).slice().sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
   const submissions = project.recentSubmissions || [];
   const approvedCount = milestones.filter((m) => m.status === 'COMPLETED').length;
   const lgaText = Array.isArray(project.lga) ? project.lga.join(', ') : project.lga;
@@ -110,6 +114,72 @@ export default function ProjectDetail() {
     }
   };
 
+  const canManage = canAccessAdminFeatures() || project.projectManagerId === user?.id;
+
+  const openMilestoneModal = (mode, milestone) => {
+    setMilestoneForm(mode === 'edit'
+      ? {
+          name: milestone.name,
+          description: milestone.description || '',
+          dueDate: milestone.dueDate ? String(milestone.dueDate).slice(0, 10) : '',
+          status: milestone.status,
+          progress: milestone.progress ?? 0,
+          budget: milestone.budget ?? '',
+          orderIndex: milestone.orderIndex ?? '',
+        }
+      : { name: '', description: '', dueDate: '', budget: '', orderIndex: '' });
+    setMilestoneModal({ mode, milestone });
+  };
+
+  const saveMilestone = async () => {
+    if (!milestoneForm.name?.trim()) {
+      showError('Milestone name is required');
+      return;
+    }
+    setSavingMilestone(true);
+    try {
+      const payload = {
+        name: milestoneForm.name.trim(),
+        description: milestoneForm.description || null,
+        dueDate: milestoneForm.dueDate || null,
+        budget: milestoneForm.budget !== '' && milestoneForm.budget != null ? Number(milestoneForm.budget) : null,
+        orderIndex: milestoneForm.orderIndex !== '' ? Number(milestoneForm.orderIndex) : undefined,
+      };
+      if (milestoneModal.mode === 'edit') {
+        payload.status = milestoneForm.status;
+        payload.progress = milestoneForm.progress !== '' ? Number(milestoneForm.progress) : 0;
+      }
+      const res = milestoneModal.mode === 'edit'
+        ? await projectAPI.updateMilestone(id, milestoneModal.milestone.id, payload)
+        : await projectAPI.addMilestone(id, payload);
+      if (res?.success) {
+        showSuccess(milestoneModal.mode === 'edit' ? 'Milestone updated' : 'Milestone added');
+        setMilestoneModal(null);
+        await load();
+      }
+    } catch (e) {
+      showError(e.message || 'Failed to save milestone');
+    } finally {
+      setSavingMilestone(false);
+    }
+  };
+
+  const deleteMilestone = async (milestone) => {
+    if (!window.confirm(`Delete milestone "${milestone.name}"? This cannot be undone.`)) return;
+    setDeletingMilestone(milestone.id);
+    try {
+      const res = await projectAPI.deleteMilestone(id, milestone.id);
+      if (res?.success) {
+        showSuccess('Milestone deleted');
+        await load();
+      }
+    } catch (e) {
+      showError(e.message || 'Failed to delete milestone');
+    } finally {
+      setDeletingMilestone(null);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
       {/* Breadcrumb */}
@@ -132,7 +202,7 @@ export default function ProjectDetail() {
           )}
         </div>
         <div className="flex flex-wrap gap-2.5">
-          {(canAccessAdminFeatures() || project.projectManagerId === user?.id) && (
+          {canManage && (
             <button type="button" onClick={openEdit} className="btn-secondary">
               <Pencil className="w-[18px] h-[18px]" strokeWidth={1.75} />
               Edit project
@@ -192,9 +262,17 @@ export default function ProjectDetail() {
 
           {/* Milestones timeline */}
           <section className="bg-surface border border-border rounded-2xl p-6">
-            <h2 className="section-title">Milestones</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="section-title">Milestones</h2>
+              {canManage && (
+                <button type="button" onClick={() => openMilestoneModal('create')} className="btn-secondary !min-h-[38px] !px-3 text-sm">
+                  <Plus className="w-4 h-4" strokeWidth={1.75} />
+                  Add milestone
+                </button>
+              )}
+            </div>
             {milestones.length === 0 ? (
-              <p className="mt-4 text-muted text-sm">No milestones defined yet.</p>
+              <p className="mt-4 text-muted text-sm">No milestones defined yet.{canManage ? ' Add one to start tracking verified progress.' : ''}</p>
             ) : (
               <ol className="list-none m-0 mt-5 p-0 flex flex-col">
                 {milestones.map((m, i) => {
@@ -233,6 +311,25 @@ export default function ProjectDetail() {
                               : ''}
                           {m.description ? ` — ${m.description}` : ''}
                         </div>
+                        {canManage && (
+                          <div className="mt-1.5 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openMilestoneModal('edit', m)}
+                              className="inline-flex items-center gap-1 text-[13px] font-semibold text-soft-fg min-h-[32px] px-1.5 rounded-md hover:bg-hoverbg"
+                            >
+                              <Pencil className="w-3.5 h-3.5" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteMilestone(m)}
+                              disabled={deletingMilestone === m.id}
+                              className="inline-flex items-center gap-1 text-[13px] font-semibold text-red-700 dark:text-red-400 min-h-[32px] px-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-50"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" /> {deletingMilestone === m.id ? 'Deleting…' : 'Delete'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </li>
                   );
@@ -339,6 +436,66 @@ export default function ProjectDetail() {
                 <button type="button" onClick={() => setIsEditOpen(false)} className="btn-secondary flex-1">Cancel</button>
                 <button type="button" onClick={saveEdit} disabled={saving} className="btn-primary flex-1">
                   {saving ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Milestone modal */}
+      {milestoneModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setMilestoneModal(null)}>
+          <div className="bg-surface rounded-2xl w-full max-w-lg p-8" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="m-0 font-bold text-xl">{milestoneModal.mode === 'edit' ? 'Edit milestone' : 'Add milestone'}</h2>
+              <button onClick={() => setMilestoneModal(null)} className="w-11 h-11 rounded-xl text-muted hover:bg-hoverbg flex items-center justify-center" aria-label="Close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="label" htmlFor="ms-name">Name</label>
+                <input id="ms-name" className="input" value={milestoneForm.name || ''} onChange={(e) => setMilestoneForm({ ...milestoneForm, name: e.target.value })} placeholder="e.g. Foundation works" />
+              </div>
+              <div>
+                <label className="label" htmlFor="ms-desc">Description</label>
+                <textarea id="ms-desc" rows={2} className="input h-auto py-3 resize-y" value={milestoneForm.description || ''} onChange={(e) => setMilestoneForm({ ...milestoneForm, description: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label" htmlFor="ms-due">Due date</label>
+                  <input id="ms-due" type="date" className="input" value={milestoneForm.dueDate || ''} onChange={(e) => setMilestoneForm({ ...milestoneForm, dueDate: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label" htmlFor="ms-order">Order</label>
+                  <input id="ms-order" type="number" min={0} className="input" value={milestoneForm.orderIndex ?? ''} onChange={(e) => setMilestoneForm({ ...milestoneForm, orderIndex: e.target.value })} placeholder="Auto" />
+                </div>
+                <div>
+                  <label className="label" htmlFor="ms-budget">Budget (₦)</label>
+                  <input id="ms-budget" type="number" min={0} className="input" value={milestoneForm.budget ?? ''} onChange={(e) => setMilestoneForm({ ...milestoneForm, budget: e.target.value })} placeholder="Optional" />
+                </div>
+                {milestoneModal.mode === 'edit' && (
+                  <>
+                    <div>
+                      <label className="label" htmlFor="ms-status">Status</label>
+                      <select id="ms-status" className="select" value={milestoneForm.status || 'PENDING'} onChange={(e) => setMilestoneForm({ ...milestoneForm, status: e.target.value })}>
+                        {['PENDING', 'IN_PROGRESS', 'COMPLETED', 'DELAYED', 'CANCELLED'].map((s) => (
+                          <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label" htmlFor="ms-progress">Progress %</label>
+                      <input id="ms-progress" type="number" min={0} max={100} className="input" value={milestoneForm.progress ?? 0} onChange={(e) => setMilestoneForm({ ...milestoneForm, progress: e.target.value })} />
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="flex gap-3 mt-2">
+                <button type="button" onClick={() => setMilestoneModal(null)} className="btn-secondary flex-1">Cancel</button>
+                <button type="button" onClick={saveMilestone} disabled={savingMilestone} className="btn-primary flex-1">
+                  {savingMilestone ? 'Saving…' : milestoneModal.mode === 'edit' ? 'Save changes' : 'Add milestone'}
                 </button>
               </div>
             </div>

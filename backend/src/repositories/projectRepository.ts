@@ -170,6 +170,97 @@ export const projectRepository = {
     return result.rows.map(mapMilestone);
   },
 
+  async findMilestoneById(id: string): Promise<DbMilestone | null> {
+    const result = await query(
+      `SELECT ${milestoneColumns} FROM milestones WHERE id = $1`,
+      [id]
+    );
+    if (result.rows.length === 0) return null;
+    return mapMilestone(result.rows[0]);
+  },
+
+  async createMilestone(
+    projectId: string,
+    data: { name: string; description?: string; dueDate?: Date | null; budget?: number | null; orderIndex?: number }
+  ): Promise<DbMilestone> {
+    let orderIndex = data.orderIndex;
+    if (orderIndex === undefined || orderIndex === null) {
+      const max = await query(
+        'SELECT COALESCE(MAX(order_index), 0) + 1 AS next FROM milestones WHERE project_id = $1',
+        [projectId]
+      );
+      orderIndex = parseInt(max.rows[0].next, 10);
+    }
+    const result = await query(
+      `INSERT INTO milestones (project_id, name, description, due_date, status, progress, budget, order_index)
+       VALUES ($1,$2,$3,$4,'PENDING',0,$5,$6)
+       RETURNING ${milestoneColumns}`,
+      [projectId, data.name, data.description ?? null, data.dueDate ?? null, data.budget ?? null, orderIndex]
+    );
+    return mapMilestone(result.rows[0]);
+  },
+
+  async updateMilestone(
+    id: string,
+    updates: { name?: string; description?: string | null; dueDate?: Date | null; completedDate?: Date | null; status?: string; progress?: number; budget?: number | null; orderIndex?: number }
+  ): Promise<DbMilestone | null> {
+    const snake = objectToSnakeCase(updates as Record<string, unknown>);
+    const entries = Object.entries(snake).filter(([, v]) => v !== undefined);
+    if (entries.length === 0) return this.findMilestoneById(id);
+
+    const fields: string[] = [];
+    const values: any[] = [];
+    entries.forEach(([key, value]) => {
+      fields.push(`${key} = $${values.length + 1}`);
+      values.push(value);
+    });
+    values.push(id);
+
+    const result = await query(
+      `UPDATE milestones SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${values.length} RETURNING ${milestoneColumns}`,
+      values
+    );
+    if (result.rows.length === 0) return null;
+    return mapMilestone(result.rows[0]);
+  },
+
+  async deleteMilestone(id: string): Promise<void> {
+    await query('DELETE FROM milestones WHERE id = $1', [id]);
+  },
+
+  /**
+   * Recompute a project's verified progress from its milestones
+   * (mean progress of non-cancelled milestones). When every milestone is
+   * completed the project is marked COMPLETED; otherwise an existing
+   * COMPLETED project drops back to IN_PROGRESS.
+   */
+  async recomputeProjectProgress(projectId: string): Promise<void> {
+    await query(
+      `WITH ms AS (
+         SELECT COALESCE(AVG(progress), 0) AS avg_progress,
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE status = 'COMPLETED') AS done
+         FROM milestones
+         WHERE project_id = $1 AND status <> 'CANCELLED'
+       )
+       UPDATE projects p
+       SET progress = ROUND(ms.avg_progress)::int,
+           status = CASE
+             WHEN ms.total > 0 AND ms.done = ms.total THEN 'COMPLETED'
+             WHEN p.status = 'COMPLETED' AND ms.total > 0 THEN 'IN_PROGRESS'
+             ELSE p.status
+           END,
+           actual_end_date = CASE
+             WHEN ms.total > 0 AND ms.done = ms.total THEN COALESCE(p.actual_end_date, NOW())
+             ELSE p.actual_end_date
+           END,
+           updated_at = NOW()
+       FROM ms
+       WHERE p.id = $1 AND ms.total > 0`,
+      [projectId]
+    );
+  },
+
   async getRecentSubmissions(projectId: string, limit = 5): Promise<DbSubmissionSummary[]> {
     const result = await query(
       `SELECT ${submissionColumns}

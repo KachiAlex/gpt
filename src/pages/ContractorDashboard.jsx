@@ -29,6 +29,7 @@ import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { projectAPI, submissionAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { showSuccess, showError } from '../utils/toast';
 
 // Mock data removed - now using API calls
 
@@ -85,7 +86,7 @@ export default function ContractorDashboard() {
 
  const handleSubmitUpdate = async () => {
  if (!selectedProject || !submissionDescription.trim()) {
- alert('Please select a project and provide a description');
+ showError('Please select a project and provide a description');
  return;
  }
 
@@ -114,7 +115,7 @@ export default function ContractorDashboard() {
  const res = await submissionAPI.create(submissionData);
  
  if (res?.success) {
- alert('Update submitted successfully!');
+ showSuccess('Update submitted successfully!');
  // Reset form
  setSelectedProject('');
  setSubmissionType('progress');
@@ -132,7 +133,7 @@ export default function ContractorDashboard() {
  }
  } catch (error) {
  console.error('Failed to submit update:', error);
- alert(error.message || 'Failed to submit update. Please try again.');
+ showError(error.message || 'Failed to submit update. Please try again.');
  } finally {
  setSubmitting(false);
  }

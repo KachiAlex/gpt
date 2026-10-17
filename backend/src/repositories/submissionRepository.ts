@@ -382,7 +382,17 @@ export const submissionRepository = {
     return mapSubmission(result.rows[0]);
   },
 
-  async review(id: string, reviewerId: string, input: ReviewSubmissionInput): Promise<DbSubmission | null> {
+  /**
+   * Review a submission. When `cascade` is provided, an APPROVED review
+   * also completes the linked milestone and recomputes the project's
+   * verified progress — all inside the same transaction.
+   */
+  async review(
+    id: string,
+    reviewerId: string,
+    input: ReviewSubmissionInput,
+    cascade?: { projectId: string; milestoneId?: string | null }
+  ): Promise<DbSubmission | null> {
     const client = await getClient();
     try {
       await client.query('BEGIN');
@@ -412,6 +422,42 @@ export const submissionRepository = {
          VALUES ($1, $2, $3, $4)`,
         [id, reviewerId, input.action, input.comments ?? null]
       );
+
+      if (cascade && status === SubmissionStatus.APPROVED && cascade.milestoneId) {
+        await client.query(
+          `UPDATE milestones
+           SET status = 'COMPLETED', completed_date = NOW(), progress = 100, updated_at = NOW()
+           WHERE id = $1 AND project_id = $2`,
+          [cascade.milestoneId, cascade.projectId]
+        );
+      }
+
+      if (cascade) {
+        await client.query(
+          `WITH ms AS (
+             SELECT COALESCE(AVG(progress), 0) AS avg_progress,
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE status = 'COMPLETED') AS done
+             FROM milestones
+             WHERE project_id = $1 AND status <> 'CANCELLED'
+           )
+           UPDATE projects p
+           SET progress = ROUND(ms.avg_progress)::int,
+               status = CASE
+                 WHEN ms.total > 0 AND ms.done = ms.total THEN 'COMPLETED'
+                 WHEN p.status = 'COMPLETED' AND ms.total > 0 THEN 'IN_PROGRESS'
+                 ELSE p.status
+               END,
+               actual_end_date = CASE
+                 WHEN ms.total > 0 AND ms.done = ms.total THEN COALESCE(p.actual_end_date, NOW())
+                 ELSE p.actual_end_date
+               END,
+               updated_at = NOW()
+           FROM ms
+           WHERE p.id = $1 AND ms.total > 0`,
+          [cascade.projectId]
+        );
+      }
 
       await client.query('COMMIT');
       return mapSubmission(updateResult.rows[0]);

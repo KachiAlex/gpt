@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
+import { query } from '../config/database';
+import { sendEmail, getFrontendUrl } from '../services/emailService';
 import { authenticate, getTokenFromRequest } from '../middleware/auth';
 import userRepository from '../repositories/userRepository';
 import { hashPassword, verifyPassword } from '../utils/password';
@@ -330,6 +333,93 @@ router.put('/change-password', authenticate, async (req: Request, res: Response)
       success: false,
       message: 'Internal server error'
     });
+  }
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Issue a one-time reset token. Always returns success so the endpoint
+ * cannot be used to probe which emails are registered. When SMTP is not
+ * configured the reset link is written to the server log instead.
+ */
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await userRepository.findByEmail(email);
+    if (user) {
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+      // Invalidate any outstanding tokens for this user
+      await query(
+        'UPDATE password_resets SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL',
+        [user.id]
+      );
+      await query(
+        'INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+        [user.id, tokenHash, expiresAt]
+      );
+
+      const resetUrl = `${getFrontendUrl()}/reset-password?token=${token}`;
+      const sent = await sendEmail(
+        email,
+        'Reset your Government Project Tracker password',
+        `A password reset was requested for this account.\n\nOpen this link within 30 minutes to choose a new password:\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`
+      );
+      if (!sent) {
+        console.log(`[auth] Password reset link for ${email}: ${resetUrl}`);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'If that email is registered, a reset link has been sent.',
+    });
+  } catch (error: any) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Exchange a valid reset token for a new password.
+ */
+router.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ success: false, message: 'Reset token is required' });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const result = await query(
+      `SELECT pr.id, pr.user_id
+       FROM password_resets pr
+       WHERE pr.token_hash = $1 AND pr.used_at IS NULL AND pr.expires_at > NOW()`,
+      [tokenHash]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'Reset link is invalid or has expired' });
+    }
+
+    const reset = result.rows[0];
+    await userRepository.updatePassword(reset.user_id, await hashPassword(newPassword));
+    await query('UPDATE password_resets SET used_at = NOW() WHERE id = $1', [reset.id]);
+
+    return res.json({ success: true, message: 'Password has been reset. You can now log in.' });
+  } catch (error: any) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 

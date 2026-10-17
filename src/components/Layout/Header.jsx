@@ -17,6 +17,13 @@ export default function Header({ onSearch }) {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const submitSearch = (e) => {
+    e.preventDefault();
+    const term = query.trim();
+    if (term) navigate(`/projects?search=${encodeURIComponent(term)}`);
+  };
 
   const handleSignOut = () => {
     localStorage.clear();
@@ -30,17 +37,19 @@ export default function Header({ onSearch }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3.5 px-6 lg:px-8 py-3.5 border-b border-border bg-surface sticky top-0 z-30">
       {/* Search */}
-      <div className="flex-1 min-w-[200px] max-w-[440px] relative">
+      <form onSubmit={submitSearch} className="flex-1 min-w-[200px] max-w-[440px] relative">
         <label htmlFor="hdr-search" className="sr-only">Search</label>
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-muted pointer-events-none" />
         <input
           id="hdr-search"
           type="search"
-          onChange={(e) => onSearch?.(e.target.value)}
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); onSearch?.(e.target.value); }}
+          onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
           placeholder="Search projects, contractors, reports"
           className="w-full h-[46px] border-[1.5px] border-border rounded-xl bg-bg text-ink pl-[42px] pr-3.5 text-[15px] placeholder-muted"
         />
-      </div>
+      </form>
 
       {/* Actions */}
       <div className="flex items-center gap-2">
