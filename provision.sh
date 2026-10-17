@@ -238,8 +238,10 @@ fi
 cat > "/etc/cron.d/$SLUG-backup" <<EOF
 # Daily pg_dump for $SLUG, 14-day retention
 15 3 * * * root docker exec $SLUG-db pg_dump -U ${SLUG//-/_}_user $DB_NAME | gzip > $DIR/backups/$DB_NAME-\$(date +\%F).sql.gz && find $DIR/backups -name '*.sql.gz' -mtime +14 -delete
+# Offsite sync — no-ops unless BACKUP_S3_* is set in $DIR/.env
+45 3 * * * root $DIR/sync-backups.sh $SLUG >/dev/null 2>&1
 EOF
-echo "==> Daily backup cron installed (03:15 UTC, 14-day retention, $DIR/backups)"
+echo "==> Daily backup cron installed (03:15 dump, 03:45 offsite sync when configured)"
 
 # ---------- done ----------
 echo "$API_PORT $SLUG" >> "$PORT_FILE"
@@ -254,5 +256,5 @@ Next steps:
   1. Point the client's frontend at this API (VITE_API_URL=https://$DOMAIN/api)
   2. Log in as admin and PUT /api/instance to set logo/branding, or edit $DIR/.env
   3. Configure SMTP in $DIR/.env for password-reset email
-  4. Consider offsite backup sync for $DIR/backups
+  4. Set BACKUP_S3_* in $DIR/.env to enable offsite backup sync
 EOF
