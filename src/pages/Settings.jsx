@@ -44,6 +44,7 @@ export default function Settings() {
  const [wfSaving, setWfSaving] = useState(false);
  const [auditEntries, setAuditEntries] = useState([]);
  const [auditLoading, setAuditLoading] = useState(false);
+ const [configRequests, setConfigRequests] = useState([]);
  const fileInputRef = useRef(null);
  const [activeTab, setActiveTab] = useState('profile');
  const [showPassword, setShowPassword] = useState(false);
@@ -119,6 +120,10 @@ export default function Settings() {
  }, [workflowStages]);
 
  useEffect(() => {
+   if (isAdmin) loadConfigRequests();
+ }, [isAdmin]);
+
+ useEffect(() => {
    if (activeTab !== 'audit' || !isAdmin) return;
    setAuditLoading(true);
    auditAPI.list({ limit: 100 })
@@ -147,13 +152,40 @@ export default function Settings() {
    }
    setWfSaving(true);
    try {
-     await instanceAPI.updateWorkflow(wfStages);
-     await refreshWorkflow();
-     showSuccess('Review workflow updated');
+     const res = await instanceAPI.updateWorkflow(wfStages);
+     if (res?.data?.pending) {
+       showSuccess('Change submitted — awaiting approval from a second administrator');
+       loadConfigRequests();
+     } else {
+       await refreshWorkflow();
+       showSuccess('Review workflow updated');
+     }
    } catch (e) {
      showError(e.message || 'Failed to save workflow');
    } finally {
      setWfSaving(false);
+   }
+ };
+
+ const loadConfigRequests = async () => {
+   try {
+     const res = await instanceAPI.listRequests();
+     if (res?.success) setConfigRequests(res.data.requests || []);
+   } catch { /* queue may not exist pre-migration */ }
+ };
+
+ const decideRequest = async (id, approve) => {
+   try {
+     const res = approve ? await instanceAPI.approveRequest(id) : await instanceAPI.rejectRequest(id);
+     if (res?.success) {
+       showSuccess(res.message || (approve ? 'Change applied' : 'Request rejected'));
+       loadConfigRequests();
+       if (approve) refreshWorkflow();
+     } else {
+       showError(res?.message || 'Action failed');
+     }
+   } catch (e) {
+     showError(e.message || 'Action failed');
    }
  };
 
@@ -1104,6 +1136,42 @@ export default function Settings() {
    </button>
  </div>
  </div>
+
+ {/* Pending config-change requests (two-admin approval) */}
+ {configRequests.filter((r) => r.status === 'PENDING').length > 0 && (
+   <div className="card">
+     <h3 className="text-lg font-semibold text-ink mb-1">Pending approvals</h3>
+     <p className="text-sm text-muted mb-4">Configuration changes awaiting a second administrator.</p>
+     <div className="space-y-3">
+       {configRequests.filter((r) => r.status === 'PENDING').map((r) => (
+         <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border border-border rounded-xl p-4">
+           <div className="min-w-0">
+             <div className="font-medium text-ink capitalize">{r.kind} change</div>
+             <div className="text-xs text-muted">
+               requested by {r.requestedByEmail} · {new Date(r.createdAt).toLocaleString()}
+             </div>
+           </div>
+           <div className="flex gap-2">
+             <button
+               type="button"
+               onClick={() => decideRequest(r.id, true)}
+               className="btn-primary !py-1.5 text-sm"
+             >
+               <Check className="h-4 w-4 mr-1" /> Approve
+             </button>
+             <button
+               type="button"
+               onClick={() => decideRequest(r.id, false)}
+               className="btn-secondary !py-1.5 text-sm"
+             >
+               <X className="h-4 w-4 mr-1" /> Reject
+             </button>
+           </div>
+         </div>
+       ))}
+     </div>
+   </div>
+ )}
  </div>
  )}
 

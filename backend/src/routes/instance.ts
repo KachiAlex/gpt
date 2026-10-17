@@ -92,27 +92,52 @@ const EDITABLE_FIELDS: Record<string, string> = {
   accentColor: 'accent_color',
 };
 
+// When REQUIRE_SECOND_APPROVAL=true, admin config changes create a pending
+// request that a DIFFERENT admin must approve before it applies.
+const SECOND_APPROVAL = process.env.REQUIRE_SECOND_APPROVAL === 'true';
+
+const applyInstanceUpdate = async (body: Record<string, any>) => {
+  const sets: string[] = [];
+  const values: any[] = [];
+  for (const [key, col] of Object.entries(EDITABLE_FIELDS)) {
+    if (body[key] !== undefined) {
+      values.push(body[key]);
+      sets.push(`${col} = $${values.length}`);
+    }
+  }
+  if (sets.length > 0) {
+    await query('INSERT INTO instance_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING');
+    await query(
+      `UPDATE instance_settings SET ${sets.join(', ')}, updated_at = NOW() WHERE id = 1`,
+      values
+    );
+  }
+};
+
+const createConfigRequest = async (req: Request, kind: 'instance' | 'workflow', payload: any) => {
+  const result = await query(
+    `INSERT INTO config_requests (kind, payload, requested_by) VALUES ($1, $2, $3) RETURNING id`,
+    [kind, JSON.stringify(payload), req.user!.userId]
+  );
+  await audit(auditFromReq(req, 'config.request', 'config_request', result.rows[0].id, { kind }));
+  return result.rows[0].id;
+};
+
 /**
  * PUT /api/instance
  * Update white-label settings (admin only)
  */
 router.put('/', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Request, res: Response) => {
   try {
-    const sets: string[] = [];
-    const values: any[] = [];
-    for (const [key, col] of Object.entries(EDITABLE_FIELDS)) {
-      if (req.body[key] !== undefined) {
-        values.push(req.body[key]);
-        sets.push(`${col} = $${values.length}`);
-      }
+    if (SECOND_APPROVAL) {
+      const requestId = await createConfigRequest(req, 'instance', req.body);
+      return res.status(202).json({
+        success: true,
+        message: 'Change submitted — requires approval from a second administrator',
+        data: { pending: true, requestId },
+      });
     }
-    if (sets.length > 0) {
-      await query('INSERT INTO instance_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING');
-      await query(
-        `UPDATE instance_settings SET ${sets.join(', ')}, updated_at = NOW() WHERE id = 1`,
-        values
-      );
-    }
+    await applyInstanceUpdate(req.body);
     await audit(auditFromReq(req, 'instance.update', 'instance', '1', { fields: Object.keys(req.body || {}) }));
     return res.json({ success: true, data: { instance: await getConfig() } });
   } catch (error: any) {
@@ -151,20 +176,16 @@ router.get('/workflow', async (_req: Request, res: Response) => {
  * System stages (SUBMITTED entry point, APPROVED/REJECTED terminals) are kept;
  * custom mid-stages are inserted between SUBMITTED and APPROVED.
  */
-router.put('/workflow', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Request, res: Response) => {
-  const incoming = Array.isArray(req.body?.stages) ? req.body.stages : null;
-  if (!incoming) {
-    return res.status(400).json({ success: false, message: 'stages array is required' });
-  }
+const validateStagePayload = (incoming: any): string | null => {
+  if (!Array.isArray(incoming)) return 'stages array is required';
   for (const s of incoming) {
-    if (!s?.label || typeof s.label !== 'string') {
-      return res.status(400).json({ success: false, message: 'Each stage needs a label' });
-    }
-    if (!Array.isArray(s.allowedRoles)) {
-      return res.status(400).json({ success: false, message: 'Each stage needs allowedRoles[]' });
-    }
+    if (!s?.label || typeof s.label !== 'string') return 'Each stage needs a label';
+    if (!Array.isArray(s.allowedRoles)) return 'Each stage needs allowedRoles[]';
   }
+  return null;
+};
 
+const applyWorkflowUpdate = async (incoming: any[], auditEntry: ReturnType<typeof auditFromReq>) => {
   const slug = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
   const client = await getClient();
   try {
@@ -207,18 +228,122 @@ router.put('/workflow', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (r
     await client.query(`UPDATE workflow_stages SET order_index = $1 WHERE key = 'REJECTED'`, [order + 1]);
 
     await audit(
-      auditFromReq(req, 'instance.workflow', 'instance', '1', { stageCount: seen.size, stages: [...seen] }),
+      { ...auditEntry, detail: { ...auditEntry.detail, stageCount: seen.size, stages: [...seen] } },
       client
     );
     await client.query('COMMIT');
-    return res.json({ success: true, data: { stages: await getStages() } });
-  } catch (error: any) {
+  } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Update workflow error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to update workflow' });
+    throw error;
   } finally {
     client.release();
   }
+};
+
+/**
+ * PUT /api/instance/workflow  (admin only)
+ * Replace the forward review chain. Body: { stages: [{ key?, label, allowedRoles }] }
+ * System stages (SUBMITTED entry point, APPROVED/REJECTED terminals) are kept;
+ * custom mid-stages are inserted between SUBMITTED and APPROVED.
+ */
+router.put('/workflow', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Request, res: Response) => {
+  const incoming = req.body?.stages;
+  const invalid = validateStagePayload(incoming);
+  if (invalid) {
+    return res.status(400).json({ success: false, message: invalid });
+  }
+
+  try {
+    if (SECOND_APPROVAL) {
+      const requestId = await createConfigRequest(req, 'workflow', { stages: incoming });
+      return res.status(202).json({
+        success: true,
+        message: 'Change submitted — requires approval from a second administrator',
+        data: { pending: true, requestId },
+      });
+    }
+    await applyWorkflowUpdate(incoming, auditFromReq(req, 'instance.workflow', 'instance', '1', {}));
+    return res.json({ success: true, data: { stages: await getStages() } });
+  } catch (error: any) {
+    console.error('Update workflow error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update workflow' });
+  }
 });
+
+/**
+ * GET /api/instance/requests — pending config-change queue (admin only).
+ * POST /api/instance/requests/:id/approve|reject — decided by a DIFFERENT admin.
+ */
+router.get('/requests', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (_req: Request, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT cr.id, cr.kind, cr.payload, cr.status, cr.created_at, cr.decided_at,
+              req.email AS requested_by_email, dec.email AS decided_by_email
+       FROM config_requests cr
+       JOIN users req ON req.id = cr.requested_by
+       LEFT JOIN users dec ON dec.id = cr.decided_by
+       ORDER BY cr.status = 'PENDING' DESC, cr.created_at DESC
+       LIMIT 100`
+    );
+    return res.json({ success: true, data: { requests: result.rows.map(rowToCamelCase) } });
+  } catch (error: any) {
+    console.error('List config requests error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to list requests' });
+  }
+});
+
+const decideRequest = (approve: boolean) =>
+  async (req: Request, res: Response) => {
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      const found = await client.query(
+        `SELECT * FROM config_requests WHERE id = $1 FOR UPDATE`, [req.params.id]
+      );
+      const request = found.rows[0];
+      if (!request) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, message: 'Request not found' });
+      }
+      if (request.status !== 'PENDING') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ success: false, message: `Request already ${request.status.toLowerCase()}` });
+      }
+      if (request.requested_by === req.user!.userId) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ success: false, message: 'A second administrator must decide this request' });
+      }
+
+      await client.query(
+        `UPDATE config_requests SET status = $2, decided_by = $3, decided_at = NOW() WHERE id = $1`,
+        [req.params.id, approve ? 'APPROVED' : 'REJECTED', req.user!.userId]
+      );
+      await audit(auditFromReq(req, approve ? 'config.approve' : 'config.reject', 'config_request', req.params.id, { kind: request.kind }), client);
+      await client.query('COMMIT');
+
+      // Apply outside the request-status transaction so a failed apply
+      // doesn't silently re-open the request
+      if (approve) {
+        if (request.kind === 'instance') {
+          await applyInstanceUpdate(request.payload);
+        } else {
+          await applyWorkflowUpdate(
+            request.payload.stages,
+            auditFromReq(req, 'instance.workflow', 'instance', '1', { approvedRequest: req.params.id })
+          );
+        }
+      }
+      return res.json({ success: true, message: approve ? 'Change approved and applied' : 'Request rejected' });
+    } catch (error: any) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      console.error('Decide config request error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to decide request' });
+    } finally {
+      client.release();
+    }
+  };
+
+router.post('/requests/:id/approve', authenticate, requireRoles('GOVERNMENT_ADMIN'), decideRequest(true));
+router.post('/requests/:id/reject', authenticate, requireRoles('GOVERNMENT_ADMIN'), decideRequest(false));
 
 export default router;

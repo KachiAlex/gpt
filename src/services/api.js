@@ -592,6 +592,15 @@ export const instanceAPI = {
       method: 'PUT',
       body: JSON.stringify({ stages }),
     }),
+
+  listRequests: () =>
+    apiFetch('/instance/requests'),
+
+  approveRequest: (id) =>
+    apiFetch(`/instance/requests/${id}/approve`, { method: 'POST' }),
+
+  rejectRequest: (id) =>
+    apiFetch(`/instance/requests/${id}/reject`, { method: 'POST' }),
 };
 
 // Audit trail (admin)

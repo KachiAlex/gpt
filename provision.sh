@@ -29,6 +29,7 @@
 #   --repo URL                   git remote (default: this checkout's origin)
 #   --smtp-host/--smtp-user/--smtp-pass/--smtp-from   mail for password resets
 #   --features '{"map":false}'   INSTANCE_FEATURES — licensed module overrides
+#   --second-approval            REQUIRE_SECOND_APPROVAL=true — config changes need a 2nd admin
 #   --no-tls                     skip certbot (bring your own cert later)
 #   --dry-run                    print the plan, change nothing
 #
@@ -42,7 +43,7 @@ INSTANCE_NAME="Government Project Tracker"
 ADMIN_EMAIL="" ADMIN_PASSWORD=""
 AREA_LABEL="Area" AREA_PLURAL="" CURRENCY="₦"
 BRAND_COLOR="" SIDEBAR_COLOR="" CONTACT_EMAIL="" FOOTER_ORG="" LOGO_URL=""
-CORS_ORIGIN="" GIT_REF="main" REPO_URL="" FEATURES=""
+CORS_ORIGIN="" GIT_REF="main" REPO_URL="" FEATURES="" SECOND_APPROVAL=0
 SMTP_HOST="" SMTP_USER="" SMTP_PASS="" SMTP_FROM=""
 TLS=1 DRY_RUN=0
 
@@ -63,6 +64,7 @@ while [ $# -gt 0 ]; do
     --git-ref) GIT_REF="$2";;
     --repo) REPO_URL="$2";;
     --features) FEATURES="$2";;
+    --second-approval) SECOND_APPROVAL=1; shift; continue;;
     --smtp-host) SMTP_HOST="$2";;
     --smtp-user) SMTP_USER="$2";;
     --smtp-pass) SMTP_PASS="$2";;
@@ -162,6 +164,7 @@ INSTANCE_AREA_LABEL_PLURAL=$AREA_PLURAL
 INSTANCE_CONTACT_EMAIL=$CONTACT_EMAIL
 INSTANCE_FOOTER_ORG=$FOOTER_ORG
 INSTANCE_FEATURES=$FEATURES
+REQUIRE_SECOND_APPROVAL=$([ "$SECOND_APPROVAL" = 1 ] && echo true || echo false)
 
 SMTP_HOST=$SMTP_HOST
 SMTP_USER=$SMTP_USER
