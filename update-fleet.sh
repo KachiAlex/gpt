@@ -36,7 +36,7 @@ for dir in $(instances); do
   if ! git -C "$dir" fetch --depth 1 origin "$REF" 2>&1 | tail -1; then
     echo "    FAIL: git fetch"; FAILED+=("$slug"); continue
   fi
-  git -C "$dir" checkout -q FETCH_HEAD || { echo "    FAIL: git checkout $REF"; FAILED+=("$slug"); continue; }
+  git -C "$dir" checkout -qf FETCH_HEAD || { echo "    FAIL: git checkout $REF"; FAILED+=("$slug"); continue; }
   echo "    code: $(git -C "$dir" rev-parse --short HEAD)"
 
   # --- migrations (ledger-tracked, applied in filename order) ---
