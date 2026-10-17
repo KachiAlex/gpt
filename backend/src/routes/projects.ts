@@ -141,7 +141,9 @@ router.get('/:id', verifyToken, async (req: Request, res: Response) => {
       });
     }
 
-    const contractor = await contractorRepository.findById(project.contractorId || '');
+    const contractor = project.contractorId
+      ? await contractorRepository.findById(project.contractorId)
+      : null;
     const milestones = await projectRepository.getMilestones(id);
     const recentSubmissions = await projectRepository.getRecentSubmissions(id);
 

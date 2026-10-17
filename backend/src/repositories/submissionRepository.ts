@@ -330,7 +330,7 @@ export const submissionRepository = {
         quality_score, safety_compliance, weather_impact, media_count, due_date
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'${SubmissionStatus.PENDING}',$11,$12,$13,0,$14
-      ) RETURNING ${submissionColumns}`,
+      ) RETURNING *`,
       [
         data.projectId,
         data.milestoneId ?? null,
@@ -371,7 +371,7 @@ export const submissionRepository = {
     values.push(id);
 
     const result = await query(
-      `UPDATE submissions
+      `UPDATE submissions s
        SET ${fields.join(', ')}, updated_at = NOW()
        WHERE id = $${values.length}
        RETURNING ${submissionColumns}`,
@@ -399,7 +399,7 @@ export const submissionRepository = {
 
       const status = input.action as SubmissionStatus;
       const updateResult = await client.query(
-        `UPDATE submissions
+        `UPDATE submissions s
          SET status = $1,
              reviewed_at = NOW(),
              reviewed_by = $2,
