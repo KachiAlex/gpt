@@ -38,6 +38,7 @@ export default function ProjectDetail() {
   const [savingMilestone, setSavingMilestone] = useState(false);
   const [deletingMilestone, setDeletingMilestone] = useState(null);
   const [publishing, setPublishing] = useState(false);
+  const [finSaving, setFinSaving] = useState(false);
 
   const load = async () => {
     try {
@@ -215,13 +216,46 @@ export default function ProjectDetail() {
             {project.isPublic
               ? <span className="status-badge text-green-800 bg-green-100 dark:bg-green-950/40 dark:text-green-300">Public</span>
               : <span className="status-badge text-muted bg-hoverbg">Internal — not public</span>}
+            <span className={clsx('status-badge', {
+              'text-muted bg-hoverbg': (project.financialStatus || 'UNRECONCILED') === 'UNRECONCILED',
+              'text-amber-800 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300': project.financialStatus === 'RECONCILED',
+              'text-green-800 bg-green-100 dark:bg-green-950/40 dark:text-green-300': project.financialStatus === 'AUDITED',
+            })}>
+              {project.financialStatus === 'AUDITED' ? 'Funds audited' : project.financialStatus === 'RECONCILED' ? 'Funds reconciled' : 'Funds unreconciled'}
+            </span>
           </div>
           <h1 className="mt-2.5 mb-0 font-extrabold text-[32px] leading-tight tracking-[-0.015em] text-brand">{project.name}</h1>
           {project.description && (
             <p className="mt-1.5 mb-0 text-muted text-base max-w-[680px]">{project.description}</p>
           )}
         </div>
-        <div className="flex flex-wrap gap-2.5">
+        <div className="flex flex-wrap gap-2.5 items-center">
+          {canPublish && (
+            <select
+              value={project.financialStatus || 'UNRECONCILED'}
+              disabled={finSaving}
+              onChange={async (e) => {
+                setFinSaving(true);
+                try {
+                  const res = await projectAPI.setFinancialStatus(id, e.target.value);
+                  if (res?.success) {
+                    setProject({ ...project, ...res.data.project });
+                    showSuccess('Financial status updated');
+                  }
+                } catch (err) {
+                  showError(err.message || 'Financial status update failed');
+                } finally {
+                  setFinSaving(false);
+                }
+              }}
+              className="border border-border rounded-lg px-3 py-2 text-sm font-medium text-ink bg-bg"
+              title="Financial reconciliation status"
+            >
+              <option value="UNRECONCILED">Funds: unreconciled</option>
+              <option value="RECONCILED">Funds: reconciled</option>
+              <option value="AUDITED">Funds: audited</option>
+            </select>
+          )}
           {canPublish && (
             <button type="button" onClick={togglePublish} disabled={publishing} className="btn-secondary">
               <Globe className="w-[18px] h-[18px]" strokeWidth={1.75} />

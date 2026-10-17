@@ -244,8 +244,9 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
     const updates: UpdateProjectInput = {};
     for (const [key, value] of Object.entries(req.body)) {
       if (value === undefined || value === null) continue;
-      // Publication state is only changeable via the dedicated publish endpoints
+      // Publication + financial state are only changeable via dedicated endpoints
       if (key === 'isPublic' || key === 'is_public' || key === 'publishedAt' || key === 'publishedBy') continue;
+      if (key === 'financialStatus' || key === 'financial_status') continue;
       if (key === 'lga') {
         updates.lga = Array.isArray(value) ? value : [value];
       } else if (key === 'startDate' || key === 'expectedEndDate' || key === 'actualEndDate') {
@@ -308,6 +309,40 @@ const setPublication = (publish: boolean) =>
 
 router.post('/:id/publish', verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER'), setPublication(true));
 router.post('/:id/unpublish', verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER'), setPublication(false));
+
+/**
+ * POST /api/projects/:id/financial-status
+ * Move the project along the financial reconciliation axis —
+ * independent of physical progress and publication.
+ * Body: { status: 'UNRECONCILED' | 'RECONCILED' | 'AUDITED' }
+ */
+const FINANCIAL_STATUSES = ['UNRECONCILED', 'RECONCILED', 'AUDITED'] as const;
+
+router.post('/:id/financial-status', verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER'), async (req: Request, res: Response) => {
+  try {
+    const { status } = req.body;
+    if (!FINANCIAL_STATUSES.includes(status)) {
+      return res.status(400).json({ success: false, message: `status must be one of: ${FINANCIAL_STATUSES.join(', ')}` });
+    }
+    const project = await projectRepository.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    const result = await query(
+      'UPDATE projects SET financial_status = $2, updated_at = NOW() WHERE id = $1 RETURNING *',
+      [req.params.id, status]
+    );
+    await audit(auditFromReq(req, 'project.financial_status', 'project', req.params.id, { name: project.name, from: project.financialStatus, to: status }));
+    return res.json({
+      success: true,
+      message: `Financial status set to ${status.toLowerCase()}`,
+      data: { project: rowToCamelCase(result.rows[0]) },
+    });
+  } catch (error: any) {
+    console.error('Set financial status error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update financial status' });
+  }
+});
 
 /**
  * POST /api/projects/:id/milestones

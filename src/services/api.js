@@ -344,6 +344,12 @@ export const projectAPI = {
   unpublish: (id) =>
     apiFetch(`/projects/${id}/unpublish`, { method: 'POST' }),
 
+  setFinancialStatus: (id, status) =>
+    apiFetch(`/projects/${id}/financial-status`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    }),
+
   addMilestone: (projectId, milestoneData) =>
     apiFetch(`/projects/${projectId}/milestones`, {
       method: 'POST',

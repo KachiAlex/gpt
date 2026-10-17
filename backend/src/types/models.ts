@@ -150,6 +150,7 @@ export interface DbProject {
   isPublic: boolean;
   publishedAt?: Date | null;
   publishedBy?: string | null;
+  financialStatus?: 'UNRECONCILED' | 'RECONCILED' | 'AUDITED';
   qualityScore: number;
   safetyCompliance?: string | null;
   weatherDelay: number;
