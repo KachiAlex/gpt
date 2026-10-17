@@ -171,6 +171,13 @@ FRONTEND_URL=$CORS_ORIGIN
 EOF
 chmod 600 "$DIR/.env"
 
+# Fleet marker — update-fleet.sh / fleet-status.sh only touch dirs with this file
+cat > "$DIR/.gpt-instance" <<EOF
+slug=$SLUG
+domain=$DOMAIN
+provisioned=$(date -u +%FT%TZ)
+EOF
+
 # ---------- containers ----------
 echo "==> Building and starting $SLUG-db + $SLUG-api"
 cd "$DIR"
@@ -178,7 +185,7 @@ docker compose -p "$SLUG" up -d --build
 
 echo "==> Waiting for API health on :$API_PORT"
 for i in $(seq 1 60); do
-  curl -sf "http://127.0.0.1:$API_PORT/api/health" >/dev/null && break
+  curl -sf "http://127.0.0.1:$API_PORT/health" >/dev/null && break
   [ "$i" = 60 ] && err "API did not become healthy — check: docker logs $SLUG-api"
   sleep 2
 done
