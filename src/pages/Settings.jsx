@@ -54,6 +54,11 @@ export default function Settings() {
  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
  const [passwordSaving, setPasswordSaving] = useState(false);
  const [passwordMessage, setPasswordMessage] = useState('');
+ // Two-factor auth (TOTP)
+ const [mfaSetup, setMfaSetup] = useState(null); // { secret, qrDataUrl }
+ const [mfaCode, setMfaCode] = useState('');
+ const [mfaBusy, setMfaBusy] = useState(false);
+ const [mfaDisable, setMfaDisable] = useState({ open: false, password: '', code: '' });
  
  // Initialize form data with user data
  const [formData, setFormData] = useState({
@@ -797,6 +802,148 @@ export default function Settings() {
  {passwordSaving ? 'Changing…' : 'Change password'}
  </button>
  </div>
+ </div>
+
+ {/* Two-factor authentication */}
+ <div className="card">
+ <div className="flex items-start justify-between gap-4 mb-4">
+ <div>
+ <h3 className="text-lg font-semibold text-ink">Two-factor authentication</h3>
+ <p className="text-sm text-muted mt-1">
+ Requires a code from an authenticator app (e.g. Google/Microsoft Authenticator) at each login.
+ </p>
+ </div>
+ <span className={clsx('text-xs font-semibold px-2.5 py-1 rounded-full',
+ user?.totpEnabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-muted')}>
+ {user?.totpEnabled ? 'Enabled' : 'Disabled'}
+ </span>
+ </div>
+
+ {!user?.totpEnabled && !mfaSetup && (
+ <button
+ type="button"
+ disabled={mfaBusy}
+ onClick={async () => {
+ setMfaBusy(true);
+ try {
+ const res = await authAPI.mfaSetup();
+ if (res.success) setMfaSetup(res.data);
+ else showError(res.message || 'Could not start two-factor setup');
+ } catch (e) { showError(e.message || 'Could not start two-factor setup'); }
+ finally { setMfaBusy(false); }
+ }}
+ className="btn-primary self-start"
+ >
+ {mfaBusy ? 'Preparing…' : 'Set up two-factor authentication'}
+ </button>
+ )}
+
+ {!user?.totpEnabled && mfaSetup && (
+ <div className="space-y-4">
+ <p className="text-sm text-muted">
+ 1. Scan this QR code with your authenticator app, or enter the key manually.
+ </p>
+ <div className="flex flex-col sm:flex-row gap-5 items-start">
+ <img src={mfaSetup.qrDataUrl} alt="TOTP QR code" className="w-44 h-44 rounded-lg border border-border" />
+ <div>
+ <div className="text-xs font-semibold text-muted mb-1">Manual entry key</div>
+ <code className="block bg-bg rounded-lg px-3 py-2 text-sm break-all select-all">{mfaSetup.secret}</code>
+ </div>
+ </div>
+ <div>
+ <p className="text-sm text-muted mb-2">2. Enter the 6-digit code it now shows:</p>
+ <div className="flex gap-3 items-center">
+ <input
+ type="text"
+ inputMode="numeric"
+ maxLength={6}
+ value={mfaCode}
+ onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+ className="w-40 border border-border rounded-lg px-3 py-2 text-center tracking-[0.3em] focus:ring-2 focus:ring-primary-500"
+ placeholder="123456"
+ />
+ <button
+ type="button"
+ disabled={mfaBusy || mfaCode.length !== 6}
+ onClick={async () => {
+ setMfaBusy(true);
+ try {
+ const res = await authAPI.mfaEnable(mfaCode);
+ if (res.success) {
+ showSuccess('Two-factor authentication enabled');
+ updateUser({ ...user, totpEnabled: true });
+ setMfaSetup(null); setMfaCode('');
+ } else showError(res.message || 'Invalid code');
+ } catch (e) { showError(e.message || 'Verification failed'); }
+ finally { setMfaBusy(false); }
+ }}
+ className="btn-primary"
+ >
+ Enable
+ </button>
+ <button type="button" onClick={() => { setMfaSetup(null); setMfaCode(''); }} className="text-sm text-soft-fg font-semibold">
+ Cancel
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
+
+ {user?.totpEnabled && !mfaDisable.open && (
+ <button
+ type="button"
+ onClick={() => setMfaDisable({ open: true, password: '', code: '' })}
+ className="text-sm font-semibold text-red-600 hover:text-red-700"
+ >
+ Disable two-factor authentication
+ </button>
+ )}
+
+ {user?.totpEnabled && mfaDisable.open && (
+ <div className="space-y-3 max-w-sm">
+ <p className="text-sm text-muted">Confirm your password and current code to disable:</p>
+ <input
+ type="password"
+ placeholder="Password"
+ value={mfaDisable.password}
+ onChange={(e) => setMfaDisable({ ...mfaDisable, password: e.target.value })}
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+ />
+ <input
+ type="text"
+ inputMode="numeric"
+ maxLength={6}
+ placeholder="6-digit code"
+ value={mfaDisable.code}
+ onChange={(e) => setMfaDisable({ ...mfaDisable, code: e.target.value.replace(/\D/g, '') })}
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+ />
+ <div className="flex gap-3">
+ <button
+ type="button"
+ disabled={mfaBusy}
+ onClick={async () => {
+ setMfaBusy(true);
+ try {
+ const res = await authAPI.mfaDisable(mfaDisable.password, mfaDisable.code);
+ if (res.success) {
+ showSuccess('Two-factor authentication disabled');
+ updateUser({ ...user, totpEnabled: false });
+ setMfaDisable({ open: false, password: '', code: '' });
+ } else showError(res.message || 'Could not disable');
+ } catch (e) { showError(e.message || 'Could not disable'); }
+ finally { setMfaBusy(false); }
+ }}
+ className="bg-red-600 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-red-700"
+ >
+ Disable 2FA
+ </button>
+ <button type="button" onClick={() => setMfaDisable({ open: false, password: '', code: '' })} className="text-sm text-soft-fg font-semibold">
+ Cancel
+ </button>
+ </div>
+ </div>
+ )}
  </div>
  </div>
  )}

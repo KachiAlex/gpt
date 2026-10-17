@@ -55,31 +55,50 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  const finishSignIn = (authData) => {
+    setUser(authData.user);
+    setToken(authData.token);
+    localStorage.setItem('gpt_auth', JSON.stringify(authData));
+
+    // Connect to Socket.IO for real-time notifications
+    if (authData.user?.id) {
+      connectSocket(authData.user.id);
+    }
+  };
+
   const signIn = async (credentials) => {
     try {
-      console.log('Attempting to sign in with:', credentials.email);
       const response = await authAPI.login(credentials);
-      
+
       if (response.success) {
         const authData = response.data;
-        console.log('Login successful:', authData);
-        setUser(authData.user);
-        setToken(authData.token);
-        localStorage.setItem('gpt_auth', JSON.stringify(authData));
-        
-        // Connect to Socket.IO for real-time notifications
-        if (authData.user?.id) {
-          connectSocket(authData.user.id);
+
+        // TOTP accounts get a challenge token — hand it back for the code step
+        if (authData.mfaRequired) {
+          return { success: true, mfaRequired: true, mfaToken: authData.mfaToken };
         }
-        
+
+        finishSignIn(authData);
         return { success: true, data: authData };
       } else {
-        console.error('Login failed:', response.message);
         return { success: false, message: response.message };
       }
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, message: error.message || 'Login failed' };
+    }
+  };
+
+  const verifyMfa = async (mfaToken, code) => {
+    try {
+      const response = await authAPI.mfaVerify(mfaToken, code);
+      if (response.success) {
+        finishSignIn(response.data);
+        return { success: true, data: response.data };
+      }
+      return { success: false, message: response.message };
+    } catch (error) {
+      return { success: false, message: error.message || 'Verification failed' };
     }
   };
 
@@ -132,6 +151,7 @@ export const AuthProvider = ({ children }) => {
     token,
     loading,
     signIn,
+    verifyMfa,
     signOut,
     updateUser,
     isAuthenticated,

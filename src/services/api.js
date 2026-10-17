@@ -271,6 +271,27 @@ export const authAPI = {
       body: JSON.stringify(passwordData),
     }),
 
+  mfaVerify: (mfaToken, code) =>
+    apiFetch('/auth/mfa-verify', {
+      method: 'POST',
+      body: JSON.stringify({ mfaToken, code }),
+    }),
+
+  mfaSetup: () =>
+    apiFetch('/auth/mfa/setup', { method: 'POST' }),
+
+  mfaEnable: (code) =>
+    apiFetch('/auth/mfa/enable', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  mfaDisable: (password, code) =>
+    apiFetch('/auth/mfa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ password, code }),
+    }),
+
   forgotPassword: (email) =>
     apiFetch('/auth/forgot-password', {
       method: 'POST',

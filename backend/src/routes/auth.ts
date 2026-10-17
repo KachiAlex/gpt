@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import { authenticator } from 'otplib';
+import QRCode from 'qrcode';
 import { config } from '../config';
 import { query } from '../config/database';
 import { sendEmail, getFrontendUrl } from '../services/emailService';
@@ -22,9 +24,24 @@ const PRIVILEGED_ROLES: string[] = [
 ];
 
 const sanitizeUser = (user: DbUser) => {
-  const { password, ...rest } = user;
+  const { password, totpSecret, ...rest } = user;
   return rest;
 };
+
+const clientIp = (req: Request) =>
+  (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress;
+
+const issueToken = (user: DbUser, contractorId: string | null) =>
+  jwt.sign(
+    {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      ...(contractorId ? { contractorId } : {}),
+    },
+    config.jwtSecret,
+    { expiresIn: config.jwtExpiresIn } as jwt.SignOptions
+  );
 
 /**
  * Returns the decoded caller if a valid admin token is present, else null.
@@ -83,6 +100,21 @@ router.post('/login', async (req: Request, res: Response) => {
       await userRepository.updatePassword(user.id, upgradedHash).catch(() => undefined);
     }
 
+    // Accounts with TOTP enabled get a short-lived challenge token instead of
+    // a session — the real token is only issued by /mfa-verify.
+    if (user.totpEnabled) {
+      const mfaToken = jwt.sign(
+        { userId: user.id, purpose: 'mfa' },
+        config.jwtSecret,
+        { expiresIn: '5m' }
+      );
+      return res.json({
+        success: true,
+        message: 'Two-factor authentication required',
+        data: { mfaRequired: true, mfaToken }
+      });
+    }
+
     await userRepository.updateLastLogin(user.id);
     await audit({
       actorId: user.id, actorEmail: user.email, actorRole: user.role,
@@ -93,17 +125,7 @@ router.post('/login', async (req: Request, res: Response) => {
     // Include contractor profile id when applicable so the client can scope queries
     const contractor = await userRepository.findContractorProfileId(user.id).catch(() => null);
 
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        ...(contractor ? { contractorId: contractor } : {}),
-      },
-      config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn } as jwt.SignOptions
-    );
+    const token = issueToken(user, contractor);
 
     return res.json({
       success: true,
@@ -120,6 +142,144 @@ router.post('/login', async (req: Request, res: Response) => {
       success: false,
       message: 'Internal server error'
     });
+  }
+});
+
+/**
+ * POST /api/auth/mfa-verify
+ * Second factor: exchange an mfa challenge token + TOTP code for a session.
+ */
+router.post('/mfa-verify', async (req: Request, res: Response) => {
+  try {
+    const { mfaToken, code } = req.body;
+    if (!mfaToken || !code) {
+      return res.status(400).json({ success: false, message: 'mfaToken and code are required' });
+    }
+
+    let payload: { userId: string; purpose: string };
+    try {
+      payload = jwt.verify(mfaToken, config.jwtSecret) as { userId: string; purpose: string };
+    } catch {
+      return res.status(401).json({ success: false, message: 'MFA session expired — log in again' });
+    }
+    if (payload.purpose !== 'mfa') {
+      return res.status(401).json({ success: false, message: 'Invalid MFA session' });
+    }
+
+    const user = await userRepository.findById(payload.userId);
+    if (!user || !user.isActive || !user.totpEnabled || !user.totpSecret) {
+      return res.status(401).json({ success: false, message: 'Invalid MFA session' });
+    }
+
+    if (!authenticator.check(String(code), user.totpSecret)) {
+      await audit({
+        actorId: user.id, actorEmail: user.email, actorRole: user.role,
+        action: 'auth.login_failed', detail: { reason: 'bad_totp' }, ip: clientIp(req),
+      });
+      return res.status(401).json({ success: false, message: 'Invalid authentication code' });
+    }
+
+    await userRepository.updateLastLogin(user.id);
+    await audit({
+      actorId: user.id, actorEmail: user.email, actorRole: user.role,
+      action: 'auth.login', entityType: 'user', entityId: user.id, ip: clientIp(req),
+    });
+
+    const contractor = await userRepository.findContractorProfileId(user.id).catch(() => null);
+    return res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        user: { ...sanitizeUser(user), contractorId: contractor ?? undefined },
+        token: issueToken(user, contractor)
+      }
+    });
+  } catch (error: any) {
+    console.error('MFA verify error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/mfa/setup
+ * Generate a pending TOTP secret + QR for the authenticated user.
+ * Nothing is enforced until /mfa/enable verifies a code.
+ */
+router.post('/mfa/setup', authenticate, async (req: Request, res: Response) => {
+  try {
+    const user = await userRepository.findById(req.user!.userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.totpEnabled) {
+      return res.status(409).json({ success: false, message: 'Two-factor authentication is already enabled' });
+    }
+
+    const secret = authenticator.generateSecret();
+    await query('UPDATE users SET totp_secret = $1 WHERE id = $2', [secret, user.id]);
+
+    const issuer = process.env.INSTANCE_NAME || 'Project Tracker';
+    const otpauthUrl = authenticator.keyuri(user.email, issuer, secret);
+    const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+    return res.json({
+      success: true,
+      data: { secret, otpauthUrl, qrDataUrl }
+    });
+  } catch (error: any) {
+    console.error('MFA setup error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/mfa/enable
+ * Verify a code against the pending secret to activate TOTP.
+ */
+router.post('/mfa/enable', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+    const user = await userRepository.findById(req.user!.userId);
+    if (!user || !user.totpSecret) {
+      return res.status(400).json({ success: false, message: 'Run mfa setup first' });
+    }
+    if (!code || !authenticator.check(String(code), user.totpSecret)) {
+      return res.status(401).json({ success: false, message: 'Invalid authentication code' });
+    }
+
+    await query('UPDATE users SET totp_enabled = TRUE, updated_at = NOW() WHERE id = $1', [user.id]);
+    await audit(auditFromReq(req, 'auth.mfa_enabled', 'user', user.id));
+    return res.json({ success: true, message: 'Two-factor authentication enabled' });
+  } catch (error: any) {
+    console.error('MFA enable error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/mfa/disable
+ * Disable TOTP — requires the account password + a valid code so a stolen
+ * session alone cannot strip the second factor.
+ */
+router.post('/mfa/disable', authenticate, async (req: Request, res: Response) => {
+  try {
+    const { password, code } = req.body;
+    const user = await userRepository.findById(req.user!.userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (!user.totpEnabled || !user.totpSecret) {
+      return res.status(400).json({ success: false, message: 'Two-factor authentication is not enabled' });
+    }
+
+    const passwordOk = password && (await verifyPassword(password, user.password));
+    const codeOk = code && authenticator.check(String(code), user.totpSecret);
+    if (!passwordOk || !codeOk) {
+      return res.status(401).json({ success: false, message: 'Password and authentication code are both required' });
+    }
+
+    await query('UPDATE users SET totp_enabled = FALSE, totp_secret = NULL, updated_at = NOW() WHERE id = $1', [user.id]);
+    await audit(auditFromReq(req, 'auth.mfa_disabled', 'user', user.id));
+    return res.json({ success: true, message: 'Two-factor authentication disabled' });
+  } catch (error: any) {
+    console.error('MFA disable error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 

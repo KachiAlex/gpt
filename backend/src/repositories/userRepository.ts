@@ -4,7 +4,7 @@ import { CreateUserInput, DbUser, UpdateUserInput, UserListItem } from '../types
 const baseColumns = `
   id, email, password, first_name, last_name, phone, role, is_active,
   profile_image, department, job_title, address, city, state,
-  last_login, created_at, updated_at
+  last_login, totp_secret, totp_enabled, created_at, updated_at
 `;
 
 const mapUser = (row: any): DbUser => {

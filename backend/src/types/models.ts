@@ -16,6 +16,8 @@ export interface DbUser {
   city?: string | null;
   state?: string | null;
   lastLogin?: Date | null;
+  totpSecret?: string | null;
+  totpEnabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

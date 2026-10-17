@@ -13,7 +13,7 @@ const roleRedirects = {
 };
 
 export default function Login() {
-  const { signIn } = useAuth();
+  const { signIn, verifyMfa } = useAuth();
   const instance = useInstance();
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,6 +21,14 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mfa, setMfa] = useState(null); // { mfaToken }
+  const [code, setCode] = useState('');
+
+  const completeLogin = (result) => {
+    showSuccess('Logged in successfully');
+    const dest = location.state?.from?.pathname || roleRedirects[result.data.user.role] || '/dashboard';
+    navigate(dest, { replace: true });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,11 +44,35 @@ export default function Login() {
         setError(result.message || 'That email or password is not correct. Check them and try again.');
         return;
       }
-      showSuccess('Logged in successfully');
-      const dest = location.state?.from?.pathname || roleRedirects[result.data.user.role] || '/dashboard';
-      navigate(dest, { replace: true });
+      if (result.mfaRequired) {
+        setMfa({ mfaToken: result.mfaToken });
+        return;
+      }
+      completeLogin(result);
     } catch {
       setError('An error occurred during sign in. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMfaSubmit = async (e) => {
+    e.preventDefault();
+    if (!code.trim()) {
+      setError('Enter the 6-digit code from your authenticator app');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const result = await verifyMfa(mfa.mfaToken, code.trim());
+      if (!result.success) {
+        setError(result.message || 'That code did not work. Check your authenticator and try again.');
+        return;
+      }
+      completeLogin(result);
+    } catch {
+      setError('Verification failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -95,6 +127,40 @@ export default function Login() {
             </div>
           )}
 
+          {mfa ? (
+            <form onSubmit={handleMfaSubmit} className="mt-6 flex flex-col gap-[18px]">
+              <p className="m-0 text-muted text-[15px]">
+                This account has two-factor authentication. Enter the 6-digit code from your authenticator app.
+              </p>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="lg-mfa" className="text-sm font-semibold">Authentication code</label>
+                <input
+                  id="lg-mfa"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => { setCode(e.target.value.replace(/\D/g, '')); setError(''); }}
+                  className="input text-center tracking-[0.4em] text-lg"
+                  autoFocus
+                  required
+                />
+              </div>
+              <button type="submit" disabled={loading} className="btn-primary min-h-[54px] text-[17px]">
+                {loading ? 'Verifying…' : 'Verify'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMfa(null); setCode(''); setError(''); }}
+                className="text-sm font-semibold text-soft-fg"
+              >
+                Back to email &amp; password
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-[18px]">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="lg-email" className="text-sm font-semibold">Email</label>
@@ -138,6 +204,7 @@ export default function Login() {
               {loading ? 'Logging in…' : 'Log in'}
             </button>
           </form>
+          )}
 
           <p className="mt-6 text-[14.5px] text-muted">
             Need an account? Contractors and officers are registered by a government administrator.
