@@ -4,7 +4,7 @@
 
 ## 1. What the product is
 
-**Government Project Tracker** ("Abia Project Tracker") is a public-accountability platform for Abia State, Nigeria. It tracks publicly funded construction/development projects — budgets in Nigerian Naira (₦), organized by Local Government Area (LGA) — across their lifecycle from creation to completion.
+**Government Project Tracker** is a public-accountability platform for Abia State, Nigeria. It tracks publicly funded construction/development projects — budgets in Nigerian Naira (₦), organized by Local Government Area (LGA) — across their lifecycle from creation to completion.
 
 Three audiences:
 

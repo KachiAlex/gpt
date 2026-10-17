@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, MapPin, ArrowRight, X, Landmark, FolderOpen } from 'lucide-react';
+import { Search, MapPin, ArrowRight, X, FolderOpen } from 'lucide-react';
 import clsx from 'clsx';
 import { publicAPI } from '../services/api';
 import StatusPill from '../components/ui/StatusPill';
@@ -91,11 +91,8 @@ export default function PublicPortal() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-3">
-            <span className="w-[42px] h-[42px] rounded-xl bg-abia-800 text-white flex items-center justify-center">
-              <Landmark className="w-6 h-6" strokeWidth={1.75} />
-            </span>
-            <span className="font-extrabold text-lg text-abia-900">Abia Project Tracker</span>
+          <Link to="/" aria-label="Government Project Tracker home" className="flex items-center gap-3">
+            <img src="/logo.png" alt="Government Project Tracker" className="h-11 w-auto" />
           </Link>
           <div className="flex items-center gap-2.5">
             <Link to="/" className="min-h-[44px] inline-flex items-center px-3 font-medium text-slate-700">

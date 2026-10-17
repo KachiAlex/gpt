@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Landmark, HardHat, ClipboardCheck, BarChart3, Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react';
+import { HardHat, ClipboardCheck, BarChart3, Eye, EyeOff, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { showSuccess } from '../utils/toast';
 
@@ -48,11 +48,10 @@ export default function Login() {
     <div className="min-h-screen flex flex-col lg:flex-row bg-bg text-ink font-sans">
       {/* Left brand panel */}
       <div className="flex-1 min-w-0 bg-[#0c4a6e] text-white px-8 lg:px-14 py-11 flex flex-col">
-        <Link to="/" className="inline-flex items-center gap-3 self-start">
-          <span className="w-[42px] h-[42px] rounded-xl bg-white text-abia-800 flex items-center justify-center">
-            <Landmark className="w-6 h-6" strokeWidth={1.75} />
+        <Link to="/" className="inline-flex items-center self-start" aria-label="Government Project Tracker home">
+          <span className="bg-white rounded-xl px-3 py-2 inline-flex items-center">
+            <img src="/logo.png" alt="Government Project Tracker" className="h-10 w-auto" />
           </span>
-          <span className="font-extrabold text-[19px]">Abia Project Tracker</span>
         </Link>
 
         <h1 className="mt-auto font-extrabold text-[42px] leading-[1.1] tracking-[-0.02em] max-w-[420px]">

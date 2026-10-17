@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Landmark, Shield, Search, ArrowRight, HardHat, ClipboardCheck, Eye } from 'lucide-react';
+import { Shield, Search, ArrowRight, HardHat, ClipboardCheck, Eye } from 'lucide-react';
 import { publicAPI } from '../services/api';
 import LGATileMap from '../components/ui/LGATileMap';
 import StatusPill from '../components/ui/StatusPill';
@@ -59,14 +59,9 @@ export default function Home() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
-          <Link to="/" aria-label="Abia Project Tracker home" className="flex items-center gap-3">
-            <span className="w-[42px] h-[42px] rounded-xl bg-abia-800 text-white flex items-center justify-center">
-              <Landmark className="w-6 h-6" strokeWidth={1.75} />
-            </span>
-            <span className="flex flex-col leading-tight">
-              <span className="font-extrabold text-lg text-abia-900">Abia Project Tracker</span>
-              <span className="text-xs text-slate-500 font-medium">Public accountability for Abia State</span>
-            </span>
+          <Link to="/" aria-label="Government Project Tracker home" className="flex items-center gap-3">
+            <img src="/logo.png" alt="Government Project Tracker" className="h-11 w-auto" />
+            <span className="text-xs text-slate-500 font-medium hidden sm:block">Public accountability for Abia State</span>
           </Link>
           <nav aria-label="Primary" className="hidden md:flex items-center gap-7 text-[15px] font-medium text-slate-700">
             <Link to="/public" className="hover:text-abia-700">Projects</Link>
@@ -221,7 +216,10 @@ export default function Home() {
       <footer className="bg-abia-950 text-abia-200">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-14 pb-8 flex flex-wrap gap-10 justify-between">
           <div className="flex-1 basis-[300px] max-w-[400px]">
-            <div className="font-extrabold text-xl text-white">Abia Project Tracker</div>
+            <div className="flex items-center gap-3">
+              <img src="/logo-mark.png" alt="" className="h-9 w-auto" />
+              <span className="font-extrabold text-xl text-white">Government Project Tracker</span>
+            </div>
             <p className="mt-2.5 text-[15px]">
               Tracking publicly funded projects across the 17 local government areas of Abia State.
             </p>

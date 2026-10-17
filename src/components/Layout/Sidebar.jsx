@@ -9,7 +9,6 @@ import {
   Settings,
   Menu,
   X,
-  Landmark,
   FileText,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
@@ -81,13 +80,9 @@ export default function Sidebar() {
         isOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-3 px-2.5 py-1" onClick={() => setIsOpen(false)}>
-          <span className="w-10 h-10 rounded-[11px] bg-white text-abia-800 flex items-center justify-center flex-none">
-            <Landmark className="w-[22px] h-[22px]" />
-          </span>
-          <span className="flex flex-col leading-tight">
-            <span className="font-extrabold text-base text-white">Project Tracker</span>
-            <span className="text-xs text-abia-300">Abia State</span>
+        <Link to="/" className="flex items-center px-2.5 py-1" onClick={() => setIsOpen(false)} aria-label="Government Project Tracker home">
+          <span className="bg-white rounded-xl px-3 py-2 inline-flex items-center">
+            <img src="/logo.png" alt="Government Project Tracker" className="h-9 w-auto" />
           </span>
         </Link>
 

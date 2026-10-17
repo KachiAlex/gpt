@@ -105,7 +105,7 @@ export default function SignInModal({ isOpen, onClose }) {
  <div className="flex items-center justify-between mb-8">
  <div>
  <h2 className="text-3xl font-bold text-ink">Sign In</h2>
- <p className="text-base text-muted mt-1">Access the Abia Project Tracker</p>
+ <p className="text-base text-muted mt-1">Access the Government Project Tracker</p>
  </div>
  <button
  onClick={onClose}
@@ -195,7 +195,7 @@ export default function SignInModal({ isOpen, onClose }) {
  {/* Footer */}
  <div className="mt-6 text-center">
  <p className="text-xs text-muted">
- Secure access to Abia State government project data
+ Secure access to government project data
  </p>
  </div>
  </div>

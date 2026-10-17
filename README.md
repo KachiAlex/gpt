@@ -1,4 +1,4 @@
-# Government Project Tracker (Abia Project Tracker)
+# Government Project Tracker
 
 Digital accountability platform for Abia State, Nigeria. Government officials track
 public projects, contractors submit progress reports, and M&E officers review them.
