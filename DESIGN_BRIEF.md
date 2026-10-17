@@ -4,7 +4,7 @@
 
 ## 1. What the product is
 
-**Government Project Tracker** is a public-accountability platform for Abia State, Nigeria. It tracks publicly funded construction/development projects — budgets in Nigerian Naira (₦), organized by Local Government Area (LGA) — across their lifecycle from creation to completion.
+**Government Project Tracker** is a public-accountability platform for government bodies. It tracks publicly funded construction/development projects — budgets in Nigerian Naira (₦), organized by Local Government Area (LGA) — across their lifecycle from creation to completion.
 
 Three audiences:
 
@@ -34,10 +34,10 @@ Key domain concepts:
 
 ### Palette (Tailwind, exact hexes)
 
-Primary brand = `abia`/`primary` = Tailwind `sky` blue scale:
+Primary brand = `primary` = Tailwind `sky` blue scale:
 
 ```
-abia-500 #0ea5e9   abia-600 #0284c7   abia-700 #0369a1   abia-800 #075985   abia-900 #0c4a6e
+primary-500 #0ea5e9   primary-600 #0284c7   primary-700 #0369a1   primary-800 #075985   primary-900 #0c4a6e
 ```
 
 Green accent (verified/active indicators): Tailwind `green` scale (`#22c55e` etc.)
@@ -58,7 +58,7 @@ Backgrounds: light mode `bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50`;
 ### Typography
 
 - Font: **Inter** (Google Fonts, weights 300–800)
-- Page titles: `text-4xl font-extrabold` with gradient text (`from-abia-600 to-abia-800` clipped)
+- Page titles: `text-4xl font-extrabold` with gradient text (`from-primary-600 to-primary-800` clipped)
 - Section headings: `text-lg font-semibold` / `text-xl font-bold`
 - Body: `text-base`/`text-sm`; stat values `text-4xl font-extrabold`; labels `text-[10px] font-bold uppercase tracking-widest`
 
@@ -66,7 +66,7 @@ Backgrounds: light mode `bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50`;
 
 - Cards: `rounded-2xl`, `border border-gray-100`, `shadow-md → hover:shadow-xl`, `p-6`
 - Buttons: `rounded-xl px-6 py-3`, gradient fills, `hover:-translate-y-0.5` lift, `transition-all duration-300`
-- Nav items: `rounded-xl`, active = `bg-gradient-to-r from-abia-500 to-abia-600 text-white shadow-lg scale-105`
+- Nav items: `rounded-xl`, active = `bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg scale-105`
 - Icons: **lucide-react**, `h-5 w-5` standard
 - Micro-motion: fade-in 0.5s, slide-up 0.3s, icon scale-on-hover, blur-3xl gradient blobs behind stat cards
 - Component classes defined globally: `.btn-primary` (blue gradient), `.btn-secondary` (white/outline), `.btn-success` (green gradient), `.card`, `.status-badge` + status variants
@@ -77,7 +77,7 @@ Two shells:
 
 **A. App shell** (all authenticated pages): fixed left sidebar `w-64` + top header + scrollable `<main>` (lg:ml-64, p-8).
 
-- **Sidebar**: gradient logo bar (`from-abia-600 to-abia-800`, white rounded "GPT" mark) → user card (rounded-2xl avatar w/ green online dot, name, role pill) → nav (Dashboard, Projects, Contractors, M&E Reports, Analytics, Map View, Settings) → "Quick Actions" section → footer ("© 2025 Kreatix Technologies"). Mobile: hamburger + overlay slide-in.
+- **Sidebar**: gradient logo bar (`from-primary-600 to-primary-800`, white rounded "GPT" mark) → user card (rounded-2xl avatar w/ green online dot, name, role pill) → nav (Dashboard, Projects, Contractors, M&E Reports, Analytics, Map View, Settings) → "Quick Actions" section → footer ("© 2025 Kreatix Technologies"). Mobile: hamburger + overlay slide-in.
 - **Header**: sticky, `bg-white/80 backdrop-blur-lg` — left: big gradient page title + welcome subtitle; right: search input, dark-mode toggle, notification bell (dropdown w/ unread badge), user avatar dropdown (Profile Settings, Preferences, Clear Cache, Sign Out).
 
 **B. Public shell** (`/` and `/public`): standalone, no sidebar — own header/footer.
@@ -85,10 +85,10 @@ Two shells:
 ## 5. Page inventory
 
 ### `/` — Home (public landing)
-Sticky white header (logo, "Public Portal" link, Login + Register buttons). Dark-blue `bg-abia-800` hero: huge headline "Tracking Abia Projects Together", tagline, project-search input, **demo nav buttons (yellow)** — these are leftover dev shortcuts, should be removed in redesign. Right side: hand-drawn **SVG map of Abia LGAs** in a white card (colored polygons, labeled). Below: 4-stat row (hardcoded: 324 projects, 17 LGAs, ₦2.4B, 45+ contractors — should become live data), 4 feature cards (Real-time Tracking, Transparent Reporting, Multi-role Access, Secure Platform), dark footer w/ quick links + contact.
+Sticky white header (logo, "Public Portal" link, Login + Register buttons). Dark-blue `bg-primary-800` hero: huge headline "Tracking Public Projects Together", tagline, project-search input, **demo nav buttons (yellow)** — these are leftover dev shortcuts, should be removed in redesign. Right side: hand-drawn **SVG map of project areas** in a white card (colored polygons, labeled). Below: 4-stat row (hardcoded: 324 projects, 17 LGAs, ₦2.4B, 45+ contractors — should become live data), 4 feature cards (Real-time Tracking, Transparent Reporting, Multi-role Access, Secure Platform), dark footer w/ quick links + contact.
 
 ### `/public` — PublicPortal (no login)
-Blue `bg-abia-600` header "Public Transparency Portal". Search + filters (category, LGA dropdowns). Live stats from `/api/public/stats`. Project cards grid: name, LGA badge, status pill, budget ₦, progress bar, contractor, dates; click → detail modal.
+Blue `bg-primary-600` header "Public Transparency Portal". Search + filters (category, LGA dropdowns). Live stats from `/api/public/stats`. Project cards grid: name, LGA badge, status pill, budget ₦, progress bar, contractor, dates; click → detail modal.
 
 ### `/dashboard` — Dashboard (admin/officer)
 4 `StatsCard` row (Total Projects / Active / Total Budget ₦ / Contractors w/ verified count; colored icon tiles, trend badges). 2 charts (Recharts: bar + pie of projects by status). Below: `RecentProjects` table (2/3 width) + right column: Quick Links buttons (role-gated) + **hardcoded Recent Activity feed** (placeholder — should become real audit data).

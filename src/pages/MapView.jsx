@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { projectAPI, contractorAPI } from '../services/api';
+import { collectAreas } from '../utils/statusMap';
 
 const STATUS_META = {
  NOT_STARTED: { label: 'Not Started', color: '#6b7280' },
@@ -44,8 +45,6 @@ const CATEGORY_META = {
 const PRIORITY_LABELS = {
  LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', CRITICAL: 'Critical',
 };
-
-const lgas = ['All LGAs', 'Aba North', 'Aba South', 'Arochukwu', 'Bende', 'Ikwuano', 'Isiala Ngwa North', 'Isiala Ngwa South', 'Isuikwuato', 'Obi Ngwa', 'Ohafia', 'Osisioma', 'Ugwunagbo', 'Ukwa East', 'Ukwa West', 'Umuahia North', 'Umuahia South', 'Umu Nneochi'];
 
 const formatNaira = (value) => {
  const n = Number(value || 0);
@@ -172,7 +171,7 @@ export default function MapView() {
  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
  <div>
  <h1 className="text-2xl font-bold text-ink">Project Map View</h1>
- <p className="text-muted">Interactive map showing project locations across Abia State.</p>
+ <p className="text-muted">Interactive map showing project locations.</p>
  </div>
  <div className="mt-4 sm:mt-0 flex space-x-3">
  <button
@@ -192,7 +191,7 @@ export default function MapView() {
  <select
  value={mapView}
  onChange={(e) => setMapView(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
  <option value="satellite">Satellite</option>
  <option value="street">Street</option>
@@ -212,7 +211,7 @@ export default function MapView() {
  placeholder="Search projects or locations..."
  value={searchTerm}
  onChange={(e) => setSearchTerm(e.target.value)}
- className="pl-10 pr-4 py-2 w-full border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="pl-10 pr-4 py-2 w-full border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  />
  </div>
 
@@ -221,7 +220,7 @@ export default function MapView() {
  <select
  value={categoryFilter}
  onChange={(e) => setCategoryFilter(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
  {categories.map(category => (
  <option key={category} value={category}>{category}</option>
@@ -231,7 +230,7 @@ export default function MapView() {
  <select
  value={statusFilter}
  onChange={(e) => setStatusFilter(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
  {statusOptions.map(status => (
  <option key={status} value={status}>{status}</option>
@@ -241,9 +240,9 @@ export default function MapView() {
  <select
  value={lgaFilter}
  onChange={(e) => setLgaFilter(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
- {lgas.map(lga => (
+ {['All LGAs', ...collectAreas(projects)].map(lga => (
  <option key={lga} value={lga}>{lga}</option>
  ))}
  </select>
@@ -262,7 +261,7 @@ export default function MapView() {
  <div className="text-center">
  <MapPin className="h-16 w-16 text-muted mx-auto mb-4" />
  <p className="text-muted mb-2">Interactive Map</p>
- <p className="text-sm text-muted">Abia State Project Locations</p>
+ <p className="text-sm text-muted">Project Locations</p>
  </div>
  </div>
 
@@ -363,7 +362,7 @@ export default function MapView() {
  className={clsx(
  'p-3 rounded-lg border cursor-pointer transition-colors',
  selectedProject?.id === project.id
- ? 'border-abia-300 bg-soft'
+ ? 'border-primary-300 bg-soft'
  : 'border-border hover:border-border hover:bg-bg'
  )}
  onClick={() => setSelectedProject(project)}

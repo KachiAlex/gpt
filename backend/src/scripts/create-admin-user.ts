@@ -18,7 +18,7 @@ import { UserRole } from '../types/domain';
 async function createAdminUser() {
   // Positional args override env vars: <email> <password> <firstName> <lastName>
   const [argEmail, argPassword, argFirstName, argLastName] = process.argv.slice(2);
-  const email = (argEmail || process.env.ADMIN_EMAIL || 'admin@abia.gov.ng').toLowerCase();
+  const email = (argEmail || process.env.ADMIN_EMAIL || 'admin@gpt.local').toLowerCase();
   const password = argPassword || process.env.ADMIN_PASSWORD || 'Admin@123!';
   const firstName = argFirstName || process.env.ADMIN_FIRST_NAME || 'Admin';
   const lastName = argLastName || process.env.ADMIN_LAST_NAME || 'User';

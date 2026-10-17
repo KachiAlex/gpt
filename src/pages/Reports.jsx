@@ -220,7 +220,7 @@ export default function Reports() {
  placeholder="Search reports..."
  value={searchTerm}
  onChange={(e) => setSearchTerm(e.target.value)}
- className="pl-10 pr-4 py-2 w-full border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="pl-10 pr-4 py-2 w-full border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  />
  </div>
 
@@ -229,7 +229,7 @@ export default function Reports() {
  <select
  value={typeFilter}
  onChange={(e) => setTypeFilter(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  {reportTypes.map(type => (
  <option key={type} value={type}>{type === 'All Types' ? type : titleCase(type)}</option>
@@ -239,7 +239,7 @@ export default function Reports() {
  <select
  value={categoryFilter}
  onChange={(e) => setCategoryFilter(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  {categories.map(category => (
  <option key={category} value={category}>{category}</option>
@@ -249,7 +249,7 @@ export default function Reports() {
  <select
  value={statusFilter}
  onChange={(e) => setStatusFilter(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  {statuses.map(status => (
  <option key={status} value={status}>{status}</option>
@@ -383,7 +383,7 @@ export default function Reports() {
  value={genForm.title}
  onChange={(e) => setGenForm({ ...genForm, title: e.target.value })}
  placeholder="e.g. Q1 2026 Progress Report"
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  />
  </div>
 
@@ -394,7 +394,7 @@ export default function Reports() {
  <select
  value={genForm.type}
  onChange={(e) => setGenForm({ ...genForm, type: e.target.value })}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
  <option value="MONTHLY">Monthly Progress Report</option>
  <option value="QUARTERLY">Quarterly Budget Analysis</option>
@@ -413,13 +413,13 @@ export default function Reports() {
  type="date"
  value={genForm.startDate}
  onChange={(e) => setGenForm({ ...genForm, startDate: e.target.value })}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  />
  <input
  type="date"
  value={genForm.endDate}
  onChange={(e) => setGenForm({ ...genForm, endDate: e.target.value })}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  />
  </div>
  </div>
@@ -431,7 +431,7 @@ export default function Reports() {
  <select
  value={genForm.scope}
  onChange={(e) => setGenForm({ ...genForm, scope: e.target.value })}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
  <option value="all">All Projects</option>
  <option value="active">Active Projects Only</option>
@@ -446,7 +446,7 @@ export default function Reports() {
  type="checkbox"
  checked={genForm.includeFinancials}
  onChange={(e) => setGenForm({ ...genForm, includeFinancials: e.target.checked })}
- className="rounded border-border text-soft-fg focus:ring-abia-500"
+ className="rounded border-border text-soft-fg focus:ring-primary-500"
  />
  <span className="ml-2 text-sm text-ink">Include financial data</span>
  </label>
@@ -458,7 +458,7 @@ export default function Reports() {
  type="checkbox"
  checked={genForm.includeContractors}
  onChange={(e) => setGenForm({ ...genForm, includeContractors: e.target.checked })}
- className="rounded border-border text-soft-fg focus:ring-abia-500"
+ className="rounded border-border text-soft-fg focus:ring-primary-500"
  />
  <span className="ml-2 text-sm text-ink">Include contractor performance</span>
  </label>

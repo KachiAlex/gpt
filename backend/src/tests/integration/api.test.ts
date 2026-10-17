@@ -117,7 +117,7 @@ describe('API Integration Tests', () => {
         name: 'Test Project',
         description: 'Test Description',
         category: 'TRANSPORTATION',
-        lga: ['Aba North'],
+        lga: ['Test District'],
         status: 'IN_PROGRESS',
         progress: 50,
         budget: 1000000,

@@ -54,7 +54,7 @@ export default function Settings() {
  department: user?.department || '',
  address: user?.address || '',
  city: user?.city || '',
- state: user?.state || 'Abia State'
+ state: user?.state || ''
  });
  
  const [notifications, setNotifications] = useState({
@@ -80,7 +80,7 @@ export default function Settings() {
  department: user.department || '',
  address: user.address || '',
  city: user.city || '',
- state: user.state || 'Abia State'
+ state: user.state || ''
  });
  
  // Load preferences if they exist
@@ -256,7 +256,7 @@ export default function Settings() {
  department: user?.department || '',
  address: user?.address || '',
  city: user?.city || '',
- state: user?.state || 'Abia State'
+ state: user?.state || ''
  });
  setProfileImage(null);
  setProfileImagePreview(null);
@@ -421,7 +421,7 @@ export default function Settings() {
  type="text"
  value={formData.firstName}
  onChange={(e) => handleInputChange('firstName', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="Enter first name"
  />
  </div>
@@ -433,7 +433,7 @@ export default function Settings() {
  type="text"
  value={formData.lastName}
  onChange={(e) => handleInputChange('lastName', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="Enter last name"
  />
  </div>
@@ -447,7 +447,7 @@ export default function Settings() {
  type="email"
  value={formData.email}
  onChange={(e) => handleInputChange('email', e.target.value)}
- className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="Enter email address"
  />
  </div>
@@ -462,7 +462,7 @@ export default function Settings() {
  type="tel"
  value={formData.phone}
  onChange={(e) => handleInputChange('phone', e.target.value)}
- className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="Enter phone number"
  />
  </div>
@@ -475,7 +475,7 @@ export default function Settings() {
  type="text"
  value={formData.jobTitle}
  onChange={(e) => handleInputChange('jobTitle', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="Enter job title"
  />
  </div>
@@ -488,7 +488,7 @@ export default function Settings() {
  <select 
  value={formData.department}
  onChange={(e) => handleInputChange('department', e.target.value)}
- className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  <option value="">Select department</option>
  <option value="Ministry of Works">Ministry of Works</option>
@@ -515,7 +515,7 @@ export default function Settings() {
  type="text"
  value={formData.address}
  onChange={(e) => handleInputChange('address', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="Enter street address"
  />
  </div>
@@ -527,7 +527,7 @@ export default function Settings() {
  type="text"
  value={formData.city}
  onChange={(e) => handleInputChange('city', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="Enter city"
  />
  </div>
@@ -539,7 +539,7 @@ export default function Settings() {
  type="text"
  value={formData.state}
  onChange={(e) => handleInputChange('state', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="Enter state"
  />
  </div>
@@ -566,7 +566,7 @@ export default function Settings() {
  type="checkbox"
  checked={notifications.email}
  onChange={() => handleNotificationChange('email')}
- className="rounded border-border text-soft-fg focus:ring-abia-500"
+ className="rounded border-border text-soft-fg focus:ring-primary-500"
  />
  </label>
  <label className="flex items-center justify-between">
@@ -578,7 +578,7 @@ export default function Settings() {
  type="checkbox"
  checked={notifications.sms}
  onChange={() => handleNotificationChange('sms')}
- className="rounded border-border text-soft-fg focus:ring-abia-500"
+ className="rounded border-border text-soft-fg focus:ring-primary-500"
  />
  </label>
  <label className="flex items-center justify-between">
@@ -590,7 +590,7 @@ export default function Settings() {
  type="checkbox"
  checked={notifications.push}
  onChange={() => handleNotificationChange('push')}
- className="rounded border-border text-soft-fg focus:ring-abia-500"
+ className="rounded border-border text-soft-fg focus:ring-primary-500"
  />
  </label>
  </div>
@@ -608,7 +608,7 @@ export default function Settings() {
  type="checkbox"
  checked={notifications.reports}
  onChange={() => handleNotificationChange('reports')}
- className="rounded border-border text-soft-fg focus:ring-abia-500"
+ className="rounded border-border text-soft-fg focus:ring-primary-500"
  />
  </label>
  <label className="flex items-center justify-between">
@@ -620,7 +620,7 @@ export default function Settings() {
  type="checkbox"
  checked={notifications.deadlines}
  onChange={() => handleNotificationChange('deadlines')}
- className="rounded border-border text-soft-fg focus:ring-abia-500"
+ className="rounded border-border text-soft-fg focus:ring-primary-500"
  />
  </label>
  <label className="flex items-center justify-between">
@@ -632,7 +632,7 @@ export default function Settings() {
  type="checkbox"
  checked={notifications.approvals}
  onChange={() => handleNotificationChange('approvals')}
- className="rounded border-border text-soft-fg focus:ring-abia-500"
+ className="rounded border-border text-soft-fg focus:ring-primary-500"
  />
  </label>
  </div>
@@ -657,7 +657,7 @@ export default function Settings() {
  type={showPassword ? 'text' : 'password'}
  value={passwordForm.currentPassword}
  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
- className="w-full pr-10 pl-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full pr-10 pl-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  />
  <button
  type="button"
@@ -682,7 +682,7 @@ export default function Settings() {
  type="password"
  value={passwordForm.newPassword}
  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  />
  </div>
  <div>
@@ -693,7 +693,7 @@ export default function Settings() {
  type="password"
  value={passwordForm.confirmPassword}
  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  />
  </div>
  </div>
@@ -763,7 +763,7 @@ export default function Settings() {
  <div className={clsx(
  'p-4 border-2 rounded-lg transition-colors',
  theme === themeOption 
- ? 'border-abia-500 bg-soft' 
+ ? 'border-primary-500 bg-soft' 
  : 'border-border hover:border-border'
  )}>
  <div className="flex items-center space-x-3">
@@ -797,7 +797,7 @@ export default function Settings() {
  <select 
  value={language}
  onChange={(e) => setLanguage(e.target.value)}
- className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  <option value="en">English</option>
  <option value="ig">Igbo</option>
@@ -813,7 +813,7 @@ export default function Settings() {
  <select 
  value={timezone}
  onChange={(e) => setTimezone(e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  <option value="WAT">West Africa Time (WAT)</option>
  <option value="GMT">Greenwich Mean Time (GMT)</option>

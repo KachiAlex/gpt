@@ -34,12 +34,6 @@ const projectCategories = [
  'Environment'
 ];
 
-const lgas = [
- 'Aba North', 'Aba South', 'Arochukwu', 'Bende', 'Ikwuano', 'Isiala Ngwa North',
- 'Isiala Ngwa South', 'Isuikwuato', 'Obi Ngwa', 'Ohafia', 'Osisioma', 'Ugwunagbo',
- 'Ukwa East', 'Ukwa West', 'Umuahia North', 'Umuahia South', 'Umu Nneochi'
-];
-
 const priorities = ['Low', 'Medium', 'High', 'Critical'];
 const fundingSources = ['State Budget', 'Federal Grant', 'World Bank', 'USAID', 'EU Grant', 'Private Partnership'];
 
@@ -67,7 +61,7 @@ export default function ProjectNew() {
  const [currentStep, setCurrentStep] = useState(1);
  const [errors, setErrors] = useState({});
  const [loading, setLoading] = useState(false);
- const [showLGADropdown, setShowLGADropdown] = useState(false);
+ const [lgaInput, setLgaInput] = useState('');
 
  const steps = [
  { id: 1, name: 'Basic Information', icon: FileText },
@@ -143,20 +137,19 @@ export default function ProjectNew() {
  }
  };
 
- const handleLGAToggle = (lga) => {
- setFormData(prev => {
- const newLGAs = prev.lga.includes(lga)
- ? prev.lga.filter(item => item !== lga)
- : [...prev.lga, lga];
- return { ...prev, lga: newLGAs };
- });
- };
-
- const handleSelectAllLGAs = () => {
+ const addLga = () => {
+ const value = lgaInput.trim();
+ if (!value) return;
  setFormData(prev => ({
  ...prev,
- lga: prev.lga.length === lgas.length ? [] : [...lgas]
+ lga: prev.lga.includes(value) ? prev.lga : [...prev.lga, value]
  }));
+ setLgaInput('');
+ if (errors.lga) setErrors(prev => ({ ...prev, lga: null }));
+ };
+
+ const removeLga = (lga) => {
+ setFormData(prev => ({ ...prev, lga: prev.lga.filter(item => item !== lga) }));
  };
 
  const validateStep = (step) => {
@@ -200,6 +193,20 @@ export default function ProjectNew() {
  const response = await projectAPI.create(submissionData);
  
  if (response.success) {
+ const projectId = response.data?.project?.id;
+ // Persist any milestones entered in the form
+ const validMilestones = formData.milestones.filter(m => m.name.trim());
+ if (projectId && validMilestones.length > 0) {
+ await Promise.all(validMilestones.map((m, i) =>
+ projectAPI.addMilestone(projectId, {
+ name: m.name.trim(),
+ description: m.description || null,
+ dueDate: m.dueDate || null,
+ budget: m.budget ? Number(m.budget) : null,
+ orderIndex: i + 1,
+ }).catch(() => null)
+ ));
+ }
  // Invalidate cache so new project appears immediately
  localStorage.removeItem('projects_list_cache');
  localStorage.removeItem('dashboard_stats_cache');
@@ -296,7 +303,7 @@ export default function ProjectNew() {
  type="text"
  value={formData.name}
  onChange={(e) => handleInputChange('name', e.target.value)}
- className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent ${
+ className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
  errors.name ? 'border-red-300' : 'border-border'
  }`}
  placeholder="Enter project name"
@@ -312,7 +319,7 @@ export default function ProjectNew() {
  value={formData.description}
  onChange={(e) => handleInputChange('description', e.target.value)}
  rows={4}
- className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent ${
+ className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
  errors.description ? 'border-red-300' : 'border-border'
  }`}
  placeholder="Describe the project objectives, scope, and expected outcomes"
@@ -327,7 +334,7 @@ export default function ProjectNew() {
  <select
  value={formData.category}
  onChange={(e) => handleInputChange('category', e.target.value)}
- className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent ${
+ className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
  errors.category ? 'border-red-300' : 'border-border'
  }`}
  >
@@ -340,57 +347,40 @@ export default function ProjectNew() {
  </div>
 
  <div>
- <label className="block text-sm font-medium text-ink mb-2">
+ <label className="block text-sm font-medium text-ink mb-2" htmlFor="pn-lga">
  Local Government Area(s) *
  </label>
- <div className="relative">
- <select
- onChange={() => {}} // Prevent default behavior
- value=""
- onClick={() => setShowLGADropdown(!showLGADropdown)}
- className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent cursor-pointer ${
+ <div className="flex gap-2">
+ <input
+ id="pn-lga"
+ type="text"
+ value={lgaInput}
+ onChange={(e) => setLgaInput(e.target.value)}
+ onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLga(); } }}
+ placeholder="e.g. Central District"
+ className={`flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
  errors.lga ? 'border-red-300' : 'border-border'
  }`}
- >
- <option value="">
- {formData.lga.length === 0 
- ? 'Select LGAs' 
- : formData.lga.length === lgas.length
- ? 'All LGAs (State-wide)'
- : `${formData.lga.length} LGA${formData.lga.length > 1 ? 's' : ''} selected`}
- </option>
- </select>
- {showLGADropdown && (
- <div className="absolute top-full left-0 mt-2 bg-surface border border-border rounded-lg shadow-sm z-50 w-full max-h-96 overflow-y-auto">
- <div className="p-4 space-y-2">
- <button
- type="button"
- onClick={handleSelectAllLGAs}
- className="w-full text-left px-3 py-2 text-sm font-medium text-soft-fg hover:bg-soft rounded border border-abia-300"
- >
- {formData.lga.length === lgas.length ? 'Clear All' : 'Select All (State-wide)'}
- </button>
- <div className="border-t border-border my-2"></div>
- {lgas.map(lga => (
- <label key={lga} className="flex items-center space-x-2 cursor-pointer hover:bg-bg p-2 rounded">
- <input
- type="checkbox"
- checked={formData.lga.includes(lga)}
- onChange={() => handleLGAToggle(lga)}
- className="w-4 h-4 text-soft-fg border-border rounded focus:ring-abia-500"
  />
- <span className="text-sm text-ink">{lga}</span>
- </label>
- ))}
- </div>
- </div>
- )}
+ <button type="button" onClick={addLga} className="btn-secondary">Add</button>
  </div>
  {errors.lga && <p className="text-red-700 dark:text-red-400 text-sm mt-1">{errors.lga}</p>}
- {formData.lga.length > 0 && formData.lga.length < lgas.length && (
- <p className="text-xs text-muted mt-1">
- Selected: {formData.lga.join(', ')}
- </p>
+ {formData.lga.length > 0 && (
+ <div className="mt-2 flex flex-wrap gap-2">
+ {formData.lga.map((lga) => (
+ <span key={lga} className="inline-flex items-center gap-1.5 bg-soft text-soft-fg text-sm font-medium rounded-full px-3 py-1">
+ {lga}
+ <button
+ type="button"
+ onClick={() => removeLga(lga)}
+ aria-label={`Remove ${lga}`}
+ className="text-soft-fg hover:text-red-600 dark:hover:text-red-400"
+ >
+ ×
+ </button>
+ </span>
+ ))}
+ </div>
  )}
  </div>
 
@@ -401,7 +391,7 @@ export default function ProjectNew() {
  <select
  value={formData.priority}
  onChange={(e) => handleInputChange('priority', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  {priorities.map(priority => (
  <option key={priority} value={priority}>{priority}</option>
@@ -417,7 +407,7 @@ export default function ProjectNew() {
  type="text"
  value={formData.beneficiaries}
  onChange={(e) => handleInputChange('beneficiaries', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="e.g., 50,000 residents"
  />
  </div>
@@ -441,7 +431,7 @@ export default function ProjectNew() {
  type="number"
  value={formData.budget}
  onChange={(e) => handleInputChange('budget', e.target.value)}
- className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent ${
+ className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
  errors.budget ? 'border-red-300' : 'border-border'
  }`}
  placeholder="0.00"
@@ -457,7 +447,7 @@ export default function ProjectNew() {
  <select
  value={formData.fundingSource}
  onChange={(e) => handleInputChange('fundingSource', e.target.value)}
- className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent ${
+ className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
  errors.fundingSource ? 'border-red-300' : 'border-border'
  }`}
  >
@@ -479,7 +469,7 @@ export default function ProjectNew() {
  type="date"
  value={formData.startDate}
  onChange={(e) => handleInputChange('startDate', e.target.value)}
- className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent ${
+ className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
  errors.startDate ? 'border-red-300' : 'border-border'
  }`}
  />
@@ -497,7 +487,7 @@ export default function ProjectNew() {
  type="date"
  value={formData.expectedEndDate}
  onChange={(e) => handleInputChange('expectedEndDate', e.target.value)}
- className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent ${
+ className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
  errors.expectedEndDate ? 'border-red-300' : 'border-border'
  }`}
  />
@@ -523,7 +513,7 @@ export default function ProjectNew() {
  <select
  value={formData.contractorId}
  onChange={(e) => handleInputChange('contractorId', e.target.value)}
- className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  <option value="">No Contractor (Assign Later)</option>
  {contractors.map(contractor => (
@@ -544,7 +534,7 @@ export default function ProjectNew() {
  type="text"
  value={formData.projectManager}
  onChange={(e) => handleInputChange('projectManager', e.target.value)}
- className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent ${
+ className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
  errors.projectManager ? 'border-red-300' : 'border-border'
  }`}
  placeholder="Project manager name"
@@ -583,7 +573,7 @@ export default function ProjectNew() {
  type="text"
  value={objective}
  onChange={(e) => handleObjectiveChange(index, e.target.value)}
- className="flex-1 border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="flex-1 border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder={`Objective ${index + 1}`}
  />
  {formData.objectives.length > 1 && (
@@ -636,7 +626,7 @@ export default function ProjectNew() {
  type="text"
  value={milestone.name}
  onChange={(e) => handleMilestoneChange(index, 'name', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="Milestone name"
  />
  </div>
@@ -644,7 +634,7 @@ export default function ProjectNew() {
  <textarea
  value={milestone.description}
  onChange={(e) => handleMilestoneChange(index, 'description', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  rows={2}
  placeholder="Milestone description"
  />
@@ -654,7 +644,7 @@ export default function ProjectNew() {
  type="date"
  value={milestone.dueDate}
  onChange={(e) => handleMilestoneChange(index, 'dueDate', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  />
  </div>
  <div>
@@ -662,7 +652,7 @@ export default function ProjectNew() {
  type="number"
  value={milestone.budget}
  onChange={(e) => handleMilestoneChange(index, 'budget', e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  placeholder="Milestone budget"
  />
  </div>
@@ -695,8 +685,6 @@ export default function ProjectNew() {
  <p className="text-ink">
  {formData.lga.length === 0 
  ? 'Not specified' 
- : formData.lga.length === lgas.length
- ? 'All LGAs (State-wide)'
  : Array.isArray(formData.lga) 
  ? formData.lga.join(', ')
  : formData.lga}

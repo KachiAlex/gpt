@@ -31,7 +31,7 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    const email = (process.env.ADMIN_EMAIL || 'admin@abia.gov.ng').toLowerCase();
+    const email = (process.env.ADMIN_EMAIL || 'admin@gpt.local').toLowerCase();
     const password = process.env.ADMIN_PASSWORD || 'Admin@123!';
     const firstName = process.env.ADMIN_FIRST_NAME || 'Government';
     const lastName = process.env.ADMIN_LAST_NAME || 'Administrator';

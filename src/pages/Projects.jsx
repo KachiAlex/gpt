@@ -16,6 +16,7 @@ import {
 import { Link, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { projectAPI } from '../services/api';
+import { collectAreas } from '../utils/statusMap';
 
 const statusMap = {
  NOT_STARTED: 'Not Started',
@@ -28,7 +29,6 @@ const statusMap = {
 };
 
 const statusOptions = ['All Statuses', 'In Progress', 'Completed', 'Delayed', 'Not Started'];
-const lgaOptions = ['All LGAs', 'Aba North', 'Aba South', 'Arochukwu', 'Bende', 'Ikwuano', 'Isiala Ngwa North', 'Isiala Ngwa South', 'Isuikwuato', 'Obi Ngwa', 'Ohafia', 'Osisioma', 'Ugwunagbo', 'Ukwa East', 'Ukwa West', 'Umuahia North', 'Umuahia South', 'Umu Nneochi'];
 
 const statusStyles = {
  'Completed': 'status-completed',
@@ -102,6 +102,8 @@ export default function Projects() {
  return () => { isMounted = false; };
  }, []);
 
+ const lgaOptions = collectAreas(projects);
+
  const filteredProjects = projects.filter(project => {
  const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
  (project.contractor || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -134,7 +136,7 @@ export default function Projects() {
  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
  <div>
  <h1 className="text-3xl font-bold text-ink mb-2">Projects</h1>
- <p className="text-lg text-muted">Manage and monitor all projects across Abia State.</p>
+ <p className="text-lg text-muted">Manage and monitor all projects.</p>
  </div>
  <div className="mt-4 sm:mt-0 flex space-x-4">
  <button className="btn-secondary flex items-center space-x-2">
@@ -159,7 +161,7 @@ export default function Projects() {
  placeholder="Search projects..."
  value={searchTerm}
  onChange={(e) => setSearchTerm(e.target.value)}
- className="pl-10 pr-4 py-2 w-full border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="pl-10 pr-4 py-2 w-full border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  />
  </div>
 
@@ -180,7 +182,7 @@ export default function Projects() {
  <select
  value={statusFilter}
  onChange={(e) => setStatusFilter(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  {statusOptions.map(option => (
  <option key={option} value={option}>{option}</option>
@@ -193,7 +195,7 @@ export default function Projects() {
  onChange={() => {}} // Prevent default behavior
  value=""
  onClick={() => setShowLGADropdown(!showLGADropdown)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent cursor-pointer"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent cursor-pointer"
  >
  <option value="">
  {selectedLGAs.length === 0 
@@ -204,13 +206,13 @@ export default function Projects() {
  {showLGADropdown && (
  <div className="absolute top-full left-0 mt-2 bg-surface border border-border rounded-lg shadow-sm z-50 w-64 max-h-96 overflow-y-auto">
  <div className="p-4 space-y-2">
- {lgaOptions.slice(1).map(lga => (
+ {lgaOptions.map(lga => (
  <label key={lga} className="flex items-center space-x-2 cursor-pointer hover:bg-bg p-2 rounded">
  <input
  type="checkbox"
  checked={selectedLGAs.includes(lga)}
  onChange={() => handleLGAToggle(lga)}
- className="w-4 h-4 text-soft-fg border-border rounded focus:ring-abia-500"
+ className="w-4 h-4 text-soft-fg border-border rounded focus:ring-primary-500"
  />
  <span className="text-sm text-ink">{lga}</span>
  </label>

@@ -197,7 +197,7 @@ export default function NotificationCenter() {
  {unreadCount > 0 && (
  <button
  onClick={markAllAsRead}
- className="text-sm text-abia-600 hover:text-abia-700 font-medium"
+ className="text-sm text-primary-600 hover:text-primary-700 font-medium"
  >
  Mark all read
  </button>
@@ -249,7 +249,7 @@ export default function NotificationCenter() {
  </p>
  </div>
  {!notification.isRead && (
- <div className="h-2 w-2 bg-abia-600 rounded-full mt-2" />
+ <div className="h-2 w-2 bg-primary-600 rounded-full mt-2" />
  )}
  </div>
  </div>

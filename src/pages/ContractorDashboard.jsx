@@ -331,7 +331,7 @@ export default function ContractorDashboard() {
  className={clsx(
  'py-2 px-1 border-b-2 font-medium text-sm',
  activeTab === tab.id
- ? 'border-abia-500 text-soft-fg'
+ ? 'border-primary-500 text-soft-fg'
  : 'border-transparent text-muted hover:text-ink hover:border-border'
  )}
  >
@@ -567,7 +567,7 @@ export default function ContractorDashboard() {
  <select 
  value={selectedProject}
  onChange={(e) => setSelectedProject(e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
  <option value="">Choose project...</option>
  {contractorProjects.map(project => (
@@ -585,7 +585,7 @@ export default function ContractorDashboard() {
  <select 
  value={submissionType}
  onChange={(e) => setSubmissionType(e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
  <option value="progress">Progress Update</option>
  <option value="milestone">Milestone Completion</option>
@@ -621,7 +621,7 @@ export default function ContractorDashboard() {
  <textarea 
  value={submissionDescription}
  onChange={(e) => setSubmissionDescription(e.target.value)}
- className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  rows="4"
  placeholder="Describe the update, progress made, or issues encountered..."
  />

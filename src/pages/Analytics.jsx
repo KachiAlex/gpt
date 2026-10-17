@@ -221,7 +221,7 @@ export default function Analytics() {
  <select
  value={timeRange}
  onChange={(e) => setTimeRange(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
  <option value="1M">Last Month</option>
  <option value="3M">Last 3 Months</option>

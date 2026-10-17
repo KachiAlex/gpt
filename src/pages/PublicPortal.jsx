@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { publicAPI } from '../services/api';
 import StatusPill from '../components/ui/StatusPill';
 import ProgressBar from '../components/ui/ProgressBar';
-import { categoryLabel, fmtNaira, fmtNairaCompact, fmtDate, LGAS } from '../utils/statusMap';
+import { categoryLabel, fmtNaira, fmtNairaCompact, fmtDate } from '../utils/statusMap';
 
 const CATEGORIES = ['All', 'Transportation', 'Healthcare', 'Water & Sanitation', 'Education', 'Housing'];
 const SORTS = [
@@ -21,6 +21,7 @@ export default function PublicPortal() {
   const [lga, setLga] = useState(params.get('lga') || '');
   const [sort, setSort] = useState('recent');
   const [projects, setProjects] = useState([]);
+  const [lgaOptions, setLgaOptions] = useState([]);
   const [stats, setStats] = useState(null);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +46,9 @@ export default function PublicPortal() {
 
   useEffect(() => {
     publicAPI.getStats().then((res) => setStats(res.data?.stats || null)).catch(() => {});
+    publicAPI.getProjectsByLGA()
+      .then((res) => setLgaOptions((res.data?.projectsByLGA || []).map((g) => g.lga).filter(Boolean).sort()))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -98,7 +102,7 @@ export default function PublicPortal() {
             <Link to="/" className="min-h-[44px] inline-flex items-center px-3 font-medium text-slate-700">
               Home
             </Link>
-            <Link to="/login" className="min-h-[44px] inline-flex items-center px-[18px] border-[1.5px] border-abia-700 rounded-[10px] text-abia-700 font-semibold text-[15px]">
+            <Link to="/login" className="min-h-[44px] inline-flex items-center px-[18px] border-[1.5px] border-primary-700 rounded-[10px] text-primary-700 font-semibold text-[15px]">
               Log in
             </Link>
           </div>
@@ -108,9 +112,9 @@ export default function PublicPortal() {
       {/* Title + filters */}
       <section className="bg-white border-b border-slate-200">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-10 pb-8">
-          <h1 className="m-0 font-extrabold text-[38px] tracking-[-0.015em] text-abia-900">Public transparency portal</h1>
+          <h1 className="m-0 font-extrabold text-[38px] tracking-[-0.015em] text-primary-900">Public transparency portal</h1>
           <p className="mt-2 text-slate-500 text-lg max-w-[640px]">
-            Every publicly funded project in Abia State, with budgets and progress reviewed by M&amp;E officers.
+            Every publicly funded project, with budgets and progress reviewed by M&amp;E officers.
           </p>
 
           <div className="mt-7 flex flex-wrap gap-3">
@@ -134,8 +138,8 @@ export default function PublicPortal() {
                 onChange={(e) => setLga(e.target.value)}
                 className="w-full h-[52px] border-[1.5px] border-slate-300 rounded-xl bg-white px-3.5 text-base text-slate-900"
               >
-                <option value="">All 17 LGAs</option>
-                {LGAS.map((l) => <option key={l} value={l}>{l}</option>)}
+                <option value="">All areas</option>
+                {lgaOptions.map((l) => <option key={l} value={l}>{l}</option>)}
               </select>
             </div>
           </div>
@@ -150,7 +154,7 @@ export default function PublicPortal() {
                 className={clsx(
                   'min-h-[44px] px-[18px] rounded-full text-[15px] font-semibold border-[1.5px] transition-colors',
                   category === c
-                    ? 'bg-abia-700 border-abia-700 text-white'
+                    ? 'bg-primary-700 border-primary-700 text-white'
                     : 'bg-white border-slate-300 text-slate-700 hover:border-slate-400'
                 )}
               >
@@ -167,7 +171,7 @@ export default function PublicPortal() {
           {statTiles.map((s) => (
             <div key={s.label} className="bg-white border border-slate-200 rounded-[14px] px-5 py-[18px]">
               <div className="text-sm text-slate-500">{s.label}</div>
-              <div className={clsx('mt-0.5 font-extrabold text-[28px]', s.color || 'text-abia-900')}>{s.value}</div>
+              <div className={clsx('mt-0.5 font-extrabold text-[28px]', s.color || 'text-primary-900')}>{s.value}</div>
             </div>
           ))}
         </div>
@@ -201,14 +205,14 @@ export default function PublicPortal() {
           <div className="mt-5 text-center py-16 text-slate-500">Loading projects…</div>
         ) : sorted.length === 0 ? (
           <div className="mt-5 bg-white border-[1.5px] border-dashed border-slate-300 rounded-2xl px-8 py-16 text-center">
-            <span className="w-14 h-14 rounded-[14px] bg-abia-100 text-abia-700 inline-flex items-center justify-center">
+            <span className="w-14 h-14 rounded-[14px] bg-primary-100 text-primary-700 inline-flex items-center justify-center">
               <FolderOpen className="w-7 h-7" strokeWidth={1.75} />
             </span>
             <h2 className="mt-4 mb-0 font-bold text-[22px]">No projects here yet</h2>
             <p className="mt-1.5 mb-0 mx-auto text-slate-500 max-w-[420px]">
               Nothing has been published for this category. Try another category, or clear your filters to see all projects.
             </p>
-            <button type="button" onClick={clearFilters} className="mt-5 min-h-[46px] px-[22px] rounded-[10px] bg-abia-700 text-white text-base font-semibold">
+            <button type="button" onClick={clearFilters} className="mt-5 min-h-[46px] px-[22px] rounded-[10px] bg-primary-700 text-white text-base font-semibold">
               Clear filters
             </button>
           </div>
@@ -217,7 +221,7 @@ export default function PublicPortal() {
             {sorted.map((p) => (
               <article key={p.id} className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col gap-3.5">
                 <div className="flex items-center justify-between gap-2.5">
-                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-abia-800 bg-abia-100 px-2.5 py-[3px] rounded-full">
+                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary-800 bg-primary-100 px-2.5 py-[3px] rounded-full">
                     <MapPin className="w-[13px] h-[13px]" />
                     {p.lga}
                   </span>
@@ -231,7 +235,7 @@ export default function PublicPortal() {
                 <div className="flex items-end justify-between gap-2.5 mt-0.5">
                   <div>
                     <div className="text-[13px] text-slate-500">Budget</div>
-                    <div className="font-extrabold text-[22px] text-abia-900">{fmtNaira(p.budget)}</div>
+                    <div className="font-extrabold text-[22px] text-primary-900">{fmtNaira(p.budget)}</div>
                   </div>
                   <div className="text-[13.5px] text-slate-500 text-right">
                     {fmtDate(p.startDate)}{p.expectedEndDate ? ` – ${fmtDate(p.expectedEndDate)}` : ''}
@@ -240,7 +244,7 @@ export default function PublicPortal() {
                 <button
                   type="button"
                   onClick={() => setSelected(p)}
-                  className="min-h-[44px] inline-flex items-center gap-1.5 font-semibold text-abia-700 border-t border-slate-200 pt-2.5 text-left"
+                  className="min-h-[44px] inline-flex items-center gap-1.5 font-semibold text-primary-700 border-t border-slate-200 pt-2.5 text-left"
                 >
                   View project details <ArrowRight className="w-4 h-4" />
                 </button>
@@ -259,11 +263,11 @@ export default function PublicPortal() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2.5 mb-3">
                     <StatusPill status={selected.status} />
-                    <span className="text-[13px] font-semibold text-abia-800 bg-abia-100 px-2.5 py-[3px] rounded-full">
+                    <span className="text-[13px] font-semibold text-primary-800 bg-primary-100 px-2.5 py-[3px] rounded-full">
                       {categoryLabel(selected.category)}
                     </span>
                   </div>
-                  <h2 className="m-0 font-extrabold text-[28px] leading-tight text-abia-900">{selected.name}</h2>
+                  <h2 className="m-0 font-extrabold text-[28px] leading-tight text-primary-900">{selected.name}</h2>
                 </div>
                 <button onClick={() => setSelected(null)} className="w-11 h-11 rounded-xl text-slate-500 hover:bg-slate-100 flex items-center justify-center" aria-label="Close">
                   <X className="w-5 h-5" />

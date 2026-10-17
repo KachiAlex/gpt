@@ -1,8 +1,9 @@
 # Government Project Tracker
 
-Digital accountability platform for Abia State, Nigeria. Government officials track
+Digital accountability platform for government projects. Government officials track
 public projects, contractors submit progress reports, and M&E officers review them.
-Includes a public transparency portal.
+Includes a public transparency portal. Works for any state or region — areas
+(LGAs/districts) are defined by the projects you create, not hardcoded.
 
 ## Architecture
 

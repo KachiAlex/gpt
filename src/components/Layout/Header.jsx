@@ -71,7 +71,7 @@ export default function Header({ onSearch }) {
             onClick={() => setShowUserMenu(!showUserMenu)}
             className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-hoverbg transition-colors"
           >
-            <span className="w-9 h-9 rounded-full bg-abia-600 text-white flex items-center justify-center text-sm font-semibold overflow-hidden">
+            <span className="w-9 h-9 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-semibold overflow-hidden">
               {user?.profileImage
                 ? <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
                 : initials}

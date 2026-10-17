@@ -162,7 +162,7 @@ export default function MEDashboard() {
                   aria-pressed={sel}
                   className={clsx(
                     'w-full text-left border-b border-border border-l-4 px-5 py-4 cursor-pointer flex flex-col gap-1.5 text-ink min-h-[44px]',
-                    sel ? 'bg-soft border-l-abia-600' : 'border-l-transparent hover:bg-hoverbg'
+                    sel ? 'bg-soft border-l-primary-600' : 'border-l-transparent hover:bg-hoverbg'
                   )}
                 >
                   <span className="flex items-center justify-between gap-2.5">

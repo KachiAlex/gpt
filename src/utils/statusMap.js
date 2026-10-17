@@ -51,12 +51,16 @@ export const categoryLabel = (c) =>
   CATEGORY_LABELS[c] ||
   (c ? String(c).replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase()).replace(/\bAnd\b/, '&') : '—');
 
-export const LGAS = [
-  'Aba North', 'Aba South', 'Arochukwu', 'Bende', 'Ikwuano',
-  'Isiala Ngwa North', 'Isiala Ngwa South', 'Isuikwuato', 'Obi Ngwa',
-  'Ohafia', 'Osisioma', 'Ugwunagbo', 'Ukwa East', 'Ukwa West',
-  'Umuahia North', 'Umuahia South', 'Umu Nneochi',
-];
+// Derive the sorted set of area names (LGAs, districts, regions —
+// whatever the deployment calls them) present in a list of projects.
+export const collectAreas = (projects = []) => {
+  const set = new Set();
+  for (const p of projects) {
+    const areas = Array.isArray(p?.lga) ? p.lga : (p?.lga ? [p.lga] : []);
+    areas.forEach((a) => a && set.add(a));
+  }
+  return [...set].sort();
+};
 
 export const fmtNaira = (n) => `₦${Number(n || 0).toLocaleString()}`;
 

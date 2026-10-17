@@ -151,7 +151,7 @@ export default function ProgressMeasurement() {
  <select
  value={timeframe}
  onChange={(e) => setTimeframe(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
  >
  <option value="current">Current Status</option>
  <option value="1month">Last Month</option>
@@ -189,7 +189,7 @@ export default function ProgressMeasurement() {
  className={clsx(
  'text-left p-4 rounded-lg border-2 transition-colors',
  selectedProject === project.id
- ? 'border-abia-300 bg-soft'
+ ? 'border-primary-300 bg-soft'
  : 'border-border hover:border-border'
  )}
  >

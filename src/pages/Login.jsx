@@ -55,23 +55,23 @@ export default function Login() {
         </Link>
 
         <h1 className="mt-auto font-extrabold text-[42px] leading-[1.1] tracking-[-0.02em] max-w-[420px]">
-          Keep Abia&apos;s projects moving and accountable
+          Keep public projects moving and accountable
         </h1>
-        <ul className="list-none mt-7 p-0 flex flex-col gap-3.5 text-[17px] text-abia-200">
+        <ul className="list-none mt-7 p-0 flex flex-col gap-3.5 text-[17px] text-primary-200">
           <li className="flex items-center gap-3">
-            <HardHat className="w-[22px] h-[22px] text-abia-400 flex-none" strokeWidth={1.75} />
+            <HardHat className="w-[22px] h-[22px] text-primary-400 flex-none" strokeWidth={1.75} />
             Contractors submit milestones and documents
           </li>
           <li className="flex items-center gap-3">
-            <ClipboardCheck className="w-[22px] h-[22px] text-abia-400 flex-none" strokeWidth={1.75} />
+            <ClipboardCheck className="w-[22px] h-[22px] text-primary-400 flex-none" strokeWidth={1.75} />
             M&amp;E officers review and approve
           </li>
           <li className="flex items-center gap-3">
-            <BarChart3 className="w-[22px] h-[22px] text-abia-400 flex-none" strokeWidth={1.75} />
+            <BarChart3 className="w-[22px] h-[22px] text-primary-400 flex-none" strokeWidth={1.75} />
             Government staff manage and report
           </li>
         </ul>
-        <div className="mt-14 text-sm text-abia-300">© 2026 Kreatix Technologies</div>
+        <div className="mt-14 text-sm text-primary-300">© 2026 Kreatix Technologies</div>
       </div>
 
       {/* Right form panel */}

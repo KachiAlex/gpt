@@ -150,7 +150,7 @@ export default function SignInModal({ isOpen, onClose }) {
  type="email"
  value={formData.email}
  onChange={(e) => handleInputChange('email', e.target.value)}
- className="w-full pl-11 pr-4 py-4 border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent text-base"
+ className="w-full pl-11 pr-4 py-4 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-base"
  placeholder="Enter your email address"
  required
  />
@@ -167,7 +167,7 @@ export default function SignInModal({ isOpen, onClose }) {
  type={showPassword ? 'text' : 'password'}
  value={formData.password}
  onChange={(e) => handleInputChange('password', e.target.value)}
- className="w-full pl-11 pr-12 py-4 border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent text-base"
+ className="w-full pl-11 pr-12 py-4 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-base"
  placeholder="Enter your password"
  required
  />

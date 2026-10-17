@@ -49,7 +49,7 @@ export default function Home() {
 
   const statItems = [
     { value: stats ? String(stats.totalProjects) : '—', label: 'Projects tracked' },
-    { value: String(Object.keys(lgaCounts).length || 17), label: 'Local government areas' },
+    { value: String(Object.keys(lgaCounts).length), label: 'Areas covered' },
     { value: stats ? fmtNairaCompact(stats.totalBudget) : '—', label: 'Public funds tracked' },
     { value: stats ? String(stats.completedProjects) : '—', label: 'Completed projects' },
   ];
@@ -61,19 +61,19 @@ export default function Home() {
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
           <Link to="/" aria-label="Government Project Tracker home" className="flex items-center gap-3">
             <img src="/logo.png" alt="Government Project Tracker" className="h-11 w-auto" />
-            <span className="text-xs text-slate-500 font-medium hidden sm:block">Public accountability for Abia State</span>
+            <span className="text-xs text-slate-500 font-medium hidden sm:block">Public accountability for government projects</span>
           </Link>
           <nav aria-label="Primary" className="hidden md:flex items-center gap-7 text-[15px] font-medium text-slate-700">
-            <Link to="/public" className="hover:text-abia-700">Projects</Link>
-            <a href="#lgas" className="hover:text-abia-700">By LGA</a>
-            <a href="#how" className="hover:text-abia-700">How it works</a>
-            <a href="#audiences" className="hover:text-abia-700">For contractors</a>
+            <Link to="/public" className="hover:text-primary-700">Projects</Link>
+            <a href="#lgas" className="hover:text-primary-700">By LGA</a>
+            <a href="#how" className="hover:text-primary-700">How it works</a>
+            <a href="#audiences" className="hover:text-primary-700">For contractors</a>
           </nav>
           <div className="flex items-center gap-2.5">
-            <Link to="/login" className="min-h-[44px] inline-flex items-center px-[18px] border-[1.5px] border-abia-700 rounded-[10px] text-abia-700 font-semibold text-[15px]">
+            <Link to="/login" className="min-h-[44px] inline-flex items-center px-[18px] border-[1.5px] border-primary-700 rounded-[10px] text-primary-700 font-semibold text-[15px]">
               Log in
             </Link>
-            <Link to="/public" className="min-h-[44px] inline-flex items-center px-[18px] bg-abia-700 rounded-[10px] text-white font-semibold text-[15px]">
+            <Link to="/public" className="min-h-[44px] inline-flex items-center px-[18px] bg-primary-700 rounded-[10px] text-white font-semibold text-[15px]">
               View projects
             </Link>
           </div>
@@ -81,18 +81,18 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="bg-abia-900 text-white">
+      <section className="bg-primary-900 text-white">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-20 pb-[88px] flex flex-wrap items-center gap-14">
           <div className="flex-1 min-w-0 basis-[460px]">
-            <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-abia-200 bg-abia-500/[.18] px-3.5 py-1.5 rounded-full">
+            <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-primary-200 bg-primary-500/[.18] px-3.5 py-1.5 rounded-full">
               <Shield className="w-4 h-4" />
               Every project, every naira, every LGA
             </div>
             <h1 className="mt-5 font-extrabold text-[40px] md:text-[56px] leading-[1.06] tracking-[-0.02em]">
-              See how public money is building Abia
+              See how public money is building your communities
             </h1>
-            <p className="mt-5 text-[19px] leading-relaxed text-abia-200 max-w-[520px]">
-              Search any government project in the state, check its budget and progress, and see who is delivering it.
+            <p className="mt-5 text-[19px] leading-relaxed text-primary-200 max-w-[520px]">
+              Search any government project, check its budget and progress, and see who is delivering it.
             </p>
             <form onSubmit={submitSearch} className="mt-8 flex flex-wrap gap-2.5 max-w-[560px]">
               <label htmlFor="hero-search" className="sr-only">Search projects</label>
@@ -107,14 +107,14 @@ export default function Home() {
                   className="w-full h-[54px] rounded-xl bg-white pl-[46px] pr-4 text-base text-slate-900"
                 />
               </div>
-              <button type="submit" className="min-h-[54px] px-[26px] rounded-xl bg-abia-500 text-abia-950 text-base font-bold">
+              <button type="submit" className="min-h-[54px] px-[26px] rounded-xl bg-primary-500 text-primary-950 text-base font-bold">
                 Search
               </button>
             </form>
-            <div className="mt-5 flex flex-wrap gap-2.5 items-center text-sm text-abia-200">
+            <div className="mt-5 flex flex-wrap gap-2.5 items-center text-sm text-primary-200">
               <span>Popular:</span>
               {['Roads', 'Water', 'Health centres', 'Schools'].map((t) => (
-                <Link key={t} to={`/public?search=${encodeURIComponent(t)}`} className="px-3 py-[5px] border border-abia-400 rounded-full text-abia-100 hover:bg-white/10">
+                <Link key={t} to={`/public?search=${encodeURIComponent(t)}`} className="px-3 py-[5px] border border-primary-400 rounded-full text-primary-100 hover:bg-white/10">
                   {t}
                 </Link>
               ))}
@@ -132,7 +132,7 @@ export default function Home() {
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-9 grid grid-cols-2 md:grid-cols-4 gap-8">
           {statItems.map((s) => (
             <div key={s.label}>
-              <div className="font-extrabold text-[38px] leading-none text-abia-900">{s.value}</div>
+              <div className="font-extrabold text-[38px] leading-none text-primary-900">{s.value}</div>
               <div className="mt-1.5 text-[15px] text-slate-500">{s.label}</div>
             </div>
           ))}
@@ -145,10 +145,10 @@ export default function Home() {
           <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-20 pb-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h2 className="m-0 font-extrabold text-[34px] tracking-[-0.01em] text-abia-900">Recently updated projects</h2>
+                <h2 className="m-0 font-extrabold text-[34px] tracking-[-0.01em] text-primary-900">Recently updated projects</h2>
                 <p className="mt-1.5 text-slate-500 text-[17px]">Progress reports reviewed by M&amp;E officers appear here first.</p>
               </div>
-              <Link to="/public" className="inline-flex items-center gap-1.5 min-h-[44px] font-semibold text-abia-700">
+              <Link to="/public" className="inline-flex items-center gap-1.5 min-h-[44px] font-semibold text-primary-700">
                 See all projects <ArrowRight className="w-[18px] h-[18px]" />
               </Link>
             </div>
@@ -160,7 +160,7 @@ export default function Home() {
                   className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col gap-3.5 hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-center justify-between gap-2.5">
-                    <span className="text-[13px] font-semibold text-abia-800 bg-abia-100 px-2.5 py-[3px] rounded-full">{p.lga}</span>
+                    <span className="text-[13px] font-semibold text-primary-800 bg-primary-100 px-2.5 py-[3px] rounded-full">{p.lga}</span>
                     <StatusPill status={p.status} />
                   </div>
                   <h3 className="m-0 font-bold text-[19px] leading-snug">{p.name}</h3>
@@ -168,7 +168,7 @@ export default function Home() {
                     {categoryLabel(p.category)}{p.contractor?.companyName ? ` · ${p.contractor.companyName}` : ''}
                   </div>
                   <ProgressBar progress={p.progress} status={p.status} showLabel />
-                  <div className="font-extrabold text-[22px] text-abia-900">{fmtNaira(p.budget)}</div>
+                  <div className="font-extrabold text-[22px] text-primary-900">{fmtNaira(p.budget)}</div>
                 </Link>
               ))}
             </div>
@@ -179,16 +179,16 @@ export default function Home() {
       {/* How it works */}
       <section id="how">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-[72px]">
-          <h2 className="m-0 font-extrabold text-[34px] tracking-[-0.01em] text-abia-900 max-w-[640px]">
+          <h2 className="m-0 font-extrabold text-[34px] tracking-[-0.01em] text-primary-900 max-w-[640px]">
             From contract to completion, in the open
           </h2>
           <div className="mt-9 grid grid-cols-1 md:grid-cols-3 gap-6">
             {steps.map((s, i) => (
               <div key={s.title} className="bg-white border border-slate-200 rounded-2xl p-7">
-                <span className="w-12 h-12 rounded-xl bg-abia-100 text-abia-700 flex items-center justify-center">
+                <span className="w-12 h-12 rounded-xl bg-primary-100 text-primary-700 flex items-center justify-center">
                   <s.icon className="w-6 h-6" strokeWidth={1.75} />
                 </span>
-                <div className="mt-1.5 text-[13px] font-bold text-abia-700 tracking-wider">STEP {i + 1}</div>
+                <div className="mt-1.5 text-[13px] font-bold text-primary-700 tracking-wider">STEP {i + 1}</div>
                 <h3 className="mt-1 mb-0 font-bold text-xl">{s.title}</h3>
                 <p className="mt-2 mb-0 text-slate-500 text-base">{s.text}</p>
               </div>
@@ -202,9 +202,9 @@ export default function Home() {
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-[72px] grid grid-cols-1 md:grid-cols-3 gap-6">
           {audiences.map((a) => (
             <div key={a.title} className="border border-slate-200 rounded-2xl p-7 flex flex-col gap-2.5">
-              <h3 className="m-0 font-bold text-[21px] text-abia-900">{a.title}</h3>
+              <h3 className="m-0 font-bold text-[21px] text-primary-900">{a.title}</h3>
               <p className="m-0 text-slate-500">{a.text}</p>
-              <Link to={a.link} className="mt-auto min-h-[44px] inline-flex items-center gap-1.5 font-semibold text-abia-700">
+              <Link to={a.link} className="mt-auto min-h-[44px] inline-flex items-center gap-1.5 font-semibold text-primary-700">
                 {a.cta} <ArrowRight className="w-[18px] h-[18px]" />
               </Link>
             </div>
@@ -213,7 +213,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-abia-950 text-abia-200">
+      <footer className="bg-primary-950 text-primary-200">
         <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-14 pb-8 flex flex-wrap gap-10 justify-between">
           <div className="flex-1 basis-[300px] max-w-[400px]">
             <div className="flex items-center gap-3">
@@ -221,7 +221,7 @@ export default function Home() {
               <span className="font-extrabold text-xl text-white">Government Project Tracker</span>
             </div>
             <p className="mt-2.5 text-[15px]">
-              Tracking publicly funded projects across the 17 local government areas of Abia State.
+              Tracking publicly funded projects across every local government area.
             </p>
           </div>
           <div className="flex flex-wrap gap-14 text-[15px]">
@@ -243,7 +243,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pb-8 text-sm text-abia-300">
+        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pb-8 text-sm text-primary-300">
           © 2026 Kreatix Technologies
         </div>
       </footer>

@@ -155,7 +155,7 @@ export default function Contractors() {
  placeholder="Search contractors..."
  value={searchTerm}
  onChange={(e) => setSearchTerm(e.target.value)}
- className="pl-10 pr-4 py-2 w-full border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="pl-10 pr-4 py-2 w-full border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  />
  </div>
 
@@ -176,7 +176,7 @@ export default function Contractors() {
  <select
  value={specializationFilter}
  onChange={(e) => setSpecializationFilter(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  {specializationOptions.map(option => (
  <option key={option} value={option}>{option}</option>
@@ -186,7 +186,7 @@ export default function Contractors() {
  <select
  value={statusFilter}
  onChange={(e) => setStatusFilter(e.target.value)}
- className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  {statusOptions.map(option => (
  <option key={option} value={option}>{option}</option>

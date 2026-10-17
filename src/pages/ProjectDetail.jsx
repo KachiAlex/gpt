@@ -194,7 +194,7 @@ export default function ProjectDetail() {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <StatusPill status={project.status} />
-            <span className="status-badge text-abia-800 bg-abia-100 dark:bg-soft dark:text-soft-fg">{categoryLabel(project.category)}</span>
+            <span className="status-badge text-primary-800 bg-primary-100 dark:bg-soft dark:text-soft-fg">{categoryLabel(project.category)}</span>
           </div>
           <h1 className="mt-2.5 mb-0 font-extrabold text-[32px] leading-tight tracking-[-0.015em] text-brand">{project.name}</h1>
           {project.description && (
@@ -286,8 +286,8 @@ export default function ProjectDetail() {
                             <Check className="w-[18px] h-[18px]" strokeWidth={3} />
                           </span>
                         ) : state === 'awaiting' ? (
-                          <span className="w-8 h-8 rounded-full bg-surface border-[3px] border-abia-600 flex items-center justify-center flex-none">
-                            <span className="w-2.5 h-2.5 rounded-full bg-abia-600" />
+                          <span className="w-8 h-8 rounded-full bg-surface border-[3px] border-primary-600 flex items-center justify-center flex-none">
+                            <span className="w-2.5 h-2.5 rounded-full bg-primary-600" />
                           </span>
                         ) : (
                           <span className="w-8 h-8 rounded-full bg-surface border-2 border-slate-300 dark:border-border flex-none" />

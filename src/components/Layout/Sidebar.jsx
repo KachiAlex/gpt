@@ -89,7 +89,7 @@ export default function Sidebar() {
         {/* User card */}
         {user && (
           <div className="mt-5 flex items-center gap-3 p-3 rounded-xl bg-white/[.07]">
-            <span className="relative flex-none w-10 h-10 rounded-full bg-abia-500 text-abia-950 flex items-center justify-center font-bold text-sm overflow-hidden">
+            <span className="relative flex-none w-10 h-10 rounded-full bg-primary-500 text-primary-950 flex items-center justify-center font-bold text-sm overflow-hidden">
               {user.profileImage
                 ? <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
                 : initials}
@@ -97,7 +97,7 @@ export default function Sidebar() {
             </span>
             <span className="flex flex-col leading-tight min-w-0">
               <span className="text-white font-semibold text-[15px] truncate">{displayName}</span>
-              <span className="text-[12.5px] text-abia-300">{roleLabels[user.role] || user.role}</span>
+              <span className="text-[12.5px] text-primary-300">{roleLabels[user.role] || user.role}</span>
             </span>
           </div>
         )}
@@ -114,7 +114,7 @@ export default function Sidebar() {
                 onClick={() => setIsOpen(false)}
                 className={clsx(
                   'min-h-[44px] flex items-center gap-3 px-3.5 rounded-[10px] transition-colors',
-                  active ? 'bg-abia-600 text-white font-semibold' : 'hover:bg-white/[.08]'
+                  active ? 'bg-primary-600 text-white font-semibold' : 'hover:bg-white/[.08]'
                 )}
               >
                 <item.icon className="w-5 h-5 flex-none" strokeWidth={1.75} />
@@ -124,7 +124,7 @@ export default function Sidebar() {
           })}
         </nav>
 
-        <div className="mt-auto pt-5 px-2.5 text-[12.5px] text-abia-300">
+        <div className="mt-auto pt-5 px-2.5 text-[12.5px] text-primary-300">
           © 2026 Kreatix Technologies
         </div>
       </div>

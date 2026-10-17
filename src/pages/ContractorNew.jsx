@@ -81,7 +81,7 @@ export default function ContractorNew() {
  phone: '',
  address: '',
  city: '',
- state: 'Abia State',
+ state: '',
  
  // Login Credentials
  username: '',
@@ -892,7 +892,7 @@ export default function ContractorNew() {
  
  {/* Upload Area */}
  <div className="mb-6">
- <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-abia-500 transition-colors">
+ <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary-500 transition-colors">
  <input
  type="file"
  multiple

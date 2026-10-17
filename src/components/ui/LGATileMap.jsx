@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { LGAS } from '../../utils/statusMap';
 
-// Schematic tile map: one tile per LGA, intensity = project count.
-// counts: { 'Aba North': 12, ... } — from /api/public/projects-by-lga
+// Schematic tile map: one tile per area present in the data, intensity = project count.
+// counts: { 'Area name': 12, ... } — from /api/public/projects-by-lga
 export default function LGATileMap({ counts = {}, basePath = '/public' }) {
+  const areas = Object.keys(counts).sort();
   const max = Math.max(1, ...Object.values(counts));
   const tileColor = (count) => {
     const r = count / max;
@@ -20,8 +20,11 @@ export default function LGATileMap({ counts = {}, basePath = '/public' }) {
         <h2 className="m-0 font-bold text-lg">Projects by LGA</h2>
         <span className="text-xs text-slate-500">Schematic map, not to scale</span>
       </div>
+      {areas.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">No project areas yet — tiles appear once projects are added.</p>
+      ) : (
       <div className="mt-4 grid grid-cols-4 sm:grid-cols-5 gap-2">
-        {LGAS.map((name) => {
+        {areas.map((name) => {
           const count = counts[name] || 0;
           return (
             <Link
@@ -36,6 +39,7 @@ export default function LGATileMap({ counts = {}, basePath = '/public' }) {
           );
         })}
       </div>
+      )}
       <div className="mt-4 flex items-center gap-2.5 text-xs text-slate-500">
         Fewer
         <span className="flex-1 h-2 rounded-full" style={{ background: 'linear-gradient(90deg,#e0f2fe,#0ea5e9,#0c4a6e)' }} />
