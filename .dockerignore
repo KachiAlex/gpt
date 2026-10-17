@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+dist
+**/dist
+.git
+.env
+.env.*
+!.env.example
+*.log
+*.md
+coverage
+backend/uploads
+uploads
+backend/src/tests
+**/*.test.ts
+**/*.spec.ts
+**/__tests__/**
