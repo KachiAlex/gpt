@@ -1,289 +1,254 @@
-import { useState } from 'react';
-import { 
-  Building, 
-  Users, 
-  FileText, 
-  Shield,
-  ArrowRight,
-  CheckCircle,
-  Star,
-  Globe,
-  Phone,
-  Mail,
-  Search
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
-import SignInModal from '../components/Auth/SignInModal';
-import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Landmark, Shield, Search, ArrowRight, HardHat, ClipboardCheck, Eye } from 'lucide-react';
+import { publicAPI } from '../services/api';
+import LGATileMap from '../components/ui/LGATileMap';
+import StatusPill from '../components/ui/StatusPill';
+import ProgressBar from '../components/ui/ProgressBar';
+import { categoryLabel, fmtNaira, fmtNairaCompact } from '../utils/statusMap';
+
+const steps = [
+  { icon: HardHat, title: 'Contractors report progress', text: 'Each milestone is submitted with notes and documents.' },
+  { icon: ClipboardCheck, title: 'M&E officers verify', text: 'Monitoring officers approve or reject each submission, with comments.' },
+  { icon: Eye, title: 'Everyone can see the result', text: 'Verified progress, budgets and dates are published for the public.' },
+];
+
+const audiences = [
+  { title: 'Citizens', text: 'Browse projects in your LGA without an account.', link: '/public', cta: 'Open the portal' },
+  { title: 'Contractors', text: 'Log in to submit milestones, upload documents and track reviews.', link: '/login', cta: 'Contractor login' },
+  { title: 'Government staff', text: 'Manage projects and contractors, review submissions and generate reports.', link: '/login', cta: 'Staff login' },
+];
 
 export default function Home() {
-  const [showSignInModal, setShowSignInModal] = useState(false);
-  const { isAuthenticated, signIn } = useAuth();
+  const navigate = useNavigate();
+  const [search, setSearch] = useState('');
+  const [stats, setStats] = useState(null);
+  const [lgaCounts, setLgaCounts] = useState({});
+  const [featured, setFeatured] = useState([]);
 
-  const stats = [
-    { label: 'Active Projects', value: '324', icon: Building },
-    { label: 'LGAs Covered', value: '17', icon: Globe },
-    { label: 'Budget Managed', value: '₦2.4B', icon: Star },
-    { label: 'Contractors', value: '45+', icon: Users }
-  ];
+  useEffect(() => {
+    publicAPI.getStats()
+      .then((res) => setStats(res.data?.stats || null))
+      .catch(() => {});
+    publicAPI.getProjectsByLGA()
+      .then((res) => {
+        const counts = {};
+        (res.data?.projectsByLGA || []).forEach((g) => { counts[g.lga] = g.count; });
+        setLgaCounts(counts);
+      })
+      .catch(() => {});
+    publicAPI.getProjects({ limit: 3 })
+      .then((res) => setFeatured(res.data?.projects || []))
+      .catch(() => {});
+  }, []);
 
-  const features = [
-    {
-      title: 'Real-time Tracking',
-      description: 'Monitor project progress in real-time with live updates and notifications',
-      icon: CheckCircle
-    },
-    {
-      title: 'Transparent Reporting',
-      description: 'Generate comprehensive reports for stakeholders and public transparency',
-      icon: FileText
-    },
-    {
-      title: 'Multi-role Access',
-      description: 'Dedicated portals for government officials, contractors, and M&E officers',
-      icon: Users
-    },
-    {
-      title: 'Secure Platform',
-      description: 'Enterprise-grade security with role-based access control and data protection',
-      icon: Shield
-    }
+  const submitSearch = (e) => {
+    e.preventDefault();
+    navigate(search.trim() ? `/public?search=${encodeURIComponent(search.trim())}` : '/public');
+  };
+
+  const statItems = [
+    { value: stats ? String(stats.totalProjects) : '—', label: 'Projects tracked' },
+    { value: String(Object.keys(lgaCounts).length || 17), label: 'Local government areas' },
+    { value: stats ? fmtNairaCompact(stats.totalBudget) : '—', label: 'Public funds tracked' },
+    { value: stats ? String(stats.completedProjects) : '—', label: 'Completed projects' },
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans text-base leading-relaxed">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-abia-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">GPT</span>
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white">Government Project Tracker</h1>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Link to="/public" className="text-gray-700 dark:text-gray-300 hover:text-abia-600 text-sm px-3 py-2 rounded transition-colors">
-                Public Portal
-              </Link>
-              <button
-                onClick={() => setShowSignInModal(true)}
-                className="bg-white hover:bg-gray-50 text-gray-900 font-semibold px-4 py-2 rounded transition-colors border border-gray-300 text-sm"
-              >
-                Login
-              </button>
-              <button className="bg-abia-600 hover:bg-abia-700 text-white font-semibold px-4 py-2 rounded transition-colors text-sm">
-                Register
-              </button>
-            </div>
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+          <Link to="/" aria-label="Abia Project Tracker home" className="flex items-center gap-3">
+            <span className="w-[42px] h-[42px] rounded-xl bg-abia-800 text-white flex items-center justify-center">
+              <Landmark className="w-6 h-6" strokeWidth={1.75} />
+            </span>
+            <span className="flex flex-col leading-tight">
+              <span className="font-extrabold text-lg text-abia-900">Abia Project Tracker</span>
+              <span className="text-xs text-slate-500 font-medium">Public accountability for Abia State</span>
+            </span>
+          </Link>
+          <nav aria-label="Primary" className="hidden md:flex items-center gap-7 text-[15px] font-medium text-slate-700">
+            <Link to="/public" className="hover:text-abia-700">Projects</Link>
+            <a href="#lgas" className="hover:text-abia-700">By LGA</a>
+            <a href="#how" className="hover:text-abia-700">How it works</a>
+            <a href="#audiences" className="hover:text-abia-700">For contractors</a>
+          </nav>
+          <div className="flex items-center gap-2.5">
+            <Link to="/login" className="min-h-[44px] inline-flex items-center px-[18px] border-[1.5px] border-abia-700 rounded-[10px] text-abia-700 font-semibold text-[15px]">
+              Log in
+            </Link>
+            <Link to="/public" className="min-h-[44px] inline-flex items-center px-[18px] bg-abia-700 rounded-[10px] text-white font-semibold text-[15px]">
+              View projects
+            </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero Section with Map */}
-      <div className="bg-abia-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
-          <div className="grid lg:grid-cols-3 gap-12 items-center">
-            {/* Left Content */}
-            <div className="lg:col-span-2 space-y-8">
-              {/* Main Heading */}
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
-                Tracking Abia Projects Together
-              </h1>
-              
-              {/* Tagline */}
-              <p className="text-xl md:text-2xl text-white/90 max-w-2xl">
-                Transparency and accountability in government projects. Monitor progress, view budgets, and stay informed about development in your local government area.
-              </p>
-              
-              {/* Search Bar */}
-              <div className="relative max-w-2xl">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                  <Search className="h-6 w-6 text-abia-600" />
-                </div>
+      {/* Hero */}
+      <section className="bg-abia-900 text-white">
+        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-20 pb-[88px] flex flex-wrap items-center gap-14">
+          <div className="flex-1 min-w-0 basis-[460px]">
+            <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-abia-200 bg-abia-500/[.18] px-3.5 py-1.5 rounded-full">
+              <Shield className="w-4 h-4" />
+              Every project, every naira, every LGA
+            </div>
+            <h1 className="mt-5 font-extrabold text-[40px] md:text-[56px] leading-[1.06] tracking-[-0.02em]">
+              See how public money is building Abia
+            </h1>
+            <p className="mt-5 text-[19px] leading-relaxed text-abia-200 max-w-[520px]">
+              Search any government project in the state, check its budget and progress, and see who is delivering it.
+            </p>
+            <form onSubmit={submitSearch} className="mt-8 flex flex-wrap gap-2.5 max-w-[560px]">
+              <label htmlFor="hero-search" className="sr-only">Search projects</label>
+              <div className="flex-1 basis-[280px] relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
-                  type="text"
-                  placeholder="Find projects by name, LGA or keyword"
-                  className="w-full pl-12 pr-4 py-4 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-abia-400"
+                  id="hero-search"
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by project, LGA or contractor"
+                  className="w-full h-[54px] rounded-xl bg-white pl-[46px] pr-4 text-base text-slate-900"
                 />
               </div>
-              
-              {/* Demo Navigation */}
-              <div className="space-y-4">
-                <p className="text-white font-semibold text-lg">Demo Navigation:</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <Link to="/dashboard" className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold px-4 py-3 rounded-lg transition-colors text-center shadow-lg">
-                    Admin Dashboard
-                  </Link>
-                  <Link to="/projects" className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold px-4 py-3 rounded-lg transition-colors text-center shadow-lg">
-                    Projects List
-                  </Link>
-                  <Link to="/projects/new" className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold px-4 py-3 rounded-lg transition-colors text-center shadow-lg">
-                    Add Project
-                  </Link>
-                  <Link to="/projects/PRJ-2023-001" className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold px-4 py-3 rounded-lg transition-colors text-center shadow-lg">
-                    Project Details
-                  </Link>
-                </div>
-              </div>
-              
-              {/* Explore Projects Button */}
-              <div>
-                <Link to="/public" className="inline-flex items-center bg-white hover:bg-gray-100 text-abia-600 font-bold px-8 py-4 rounded-lg transition-colors shadow-lg">
-                  Explore Projects
-                  <ArrowRight className="ml-2 h-5 w-5" />
+              <button type="submit" className="min-h-[54px] px-[26px] rounded-xl bg-abia-500 text-abia-950 text-base font-bold">
+                Search
+              </button>
+            </form>
+            <div className="mt-5 flex flex-wrap gap-2.5 items-center text-sm text-abia-200">
+              <span>Popular:</span>
+              {['Roads', 'Water', 'Health centres', 'Schools'].map((t) => (
+                <Link key={t} to={`/public?search=${encodeURIComponent(t)}`} className="px-3 py-[5px] border border-abia-400 rounded-full text-abia-100 hover:bg-white/10">
+                  {t}
                 </Link>
-              </div>
-          </div>
-          
-            {/* Right - Map */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-xl shadow-2xl p-6 border-4 border-white/20">
-                <div className="relative w-full aspect-square">
-                  {/* Simplified Abia State Map */}
-                  <svg viewBox="0 0 300 400" className="w-full h-full">
-                    {/* Background */}
-                    <rect width="300" height="400" fill="#e8f5e9" />
-                    
-                    {/* LGAs represented as colored regions */}
-                    <polygon points="150,50 200,80 180,120 100,110 80,80" fill="#ffd54f" stroke="#424242" strokeWidth="2" />
-                    <text x="130" y="95" fontSize="10" fill="#000" fontWeight="bold">UMUNNEOCHI</text>
-                    
-                    <polygon points="100,120 200,130 190,180 90,170" fill="#ff8a65" stroke="#424242" strokeWidth="2" />
-                    <text x="110" y="155" fontSize="12" fill="#000" fontWeight="bold">BENDE</text>
-                    
-                    <polygon points="80,180 150,185 140,240 70,235" fill="#f06292" stroke="#424242" strokeWidth="2" />
-                    <text x="85" y="215" fontSize="11" fill="#000" fontWeight="bold">OHAFIA</text>
-                    
-                    <polygon points="70,240 140,245 130,300 60,295" fill="#4caf50" stroke="#424242" strokeWidth="2" />
-                    <text x="80" y="275" fontSize="11" fill="#000" fontWeight="bold">AROCHUKWU</text>
-                    
-                    <polygon points="150,130 250,135 240,185 155,180" fill="#81c784" stroke="#424242" strokeWidth="2" />
-                    <text x="170" y="160" fontSize="10" fill="#000" fontWeight="bold">UMUAHIA</text>
-                    
-                    <polygon points="155,185 230,190 220,240 160,235" fill="#64b5f6" stroke="#424242" strokeWidth="2" />
-                    <text x="165" y="215" fontSize="9" fill="#000" fontWeight="bold">ABA NORTH</text>
-                    
-                    <polygon points="160,240 250,245 235,320 150,315" fill="#ba68c8" stroke="#424242" strokeWidth="2" />
-                    <text x="180" y="285" fontSize="9" fill="#000" fontWeight="bold">UKWA WEST</text>
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
+              ))}
             </div>
           </div>
 
-      {/* Stats Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-              <div key={index} className="text-center">
-                <div className="w-16 h-16 bg-abia-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <Icon className="h-8 w-8 text-abia-600" />
-                </div>
-                <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{stat.value}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400 font-semibold">{stat.label}</div>
-                </div>
-              );
-            })}
+          <div id="lgas" className="flex-1 min-w-0 basis-[440px]">
+            <LGATileMap counts={lgaCounts} />
           </div>
         </div>
+      </section>
 
-      {/* Features Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white mb-6">Platform Features</h2>
-          <p className="text-xl text-gray-700 dark:text-gray-300 max-w-2xl mx-auto font-medium">
-            Comprehensive tools for effective project management and monitoring
-          </p>
+      {/* Live stats */}
+      <section className="bg-white border-b border-slate-200">
+        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-9 grid grid-cols-2 md:grid-cols-4 gap-8">
+          {statItems.map((s) => (
+            <div key={s.label}>
+              <div className="font-extrabold text-[38px] leading-none text-abia-900">{s.value}</div>
+              <div className="mt-1.5 text-[15px] text-slate-500">{s.label}</div>
+            </div>
+          ))}
         </div>
+      </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {features.map((feature, index) => {
-            const Icon = feature.icon;
-            return (
-              <div key={index} className="group bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl border border-gray-200 dark:border-gray-700 p-8 text-center transform hover:-translate-y-2 transition-all duration-300 cursor-pointer">
-                <div className="w-16 h-16 bg-gradient-to-br from-abia-500 to-abia-700 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                  <Icon className="h-8 w-8 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">{feature.title}</h3>
-                <p className="text-gray-700 dark:text-gray-300 text-base font-medium">{feature.description}</p>
+      {/* Recently updated projects */}
+      {featured.length > 0 && (
+        <section>
+          <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-20 pb-6">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="m-0 font-extrabold text-[34px] tracking-[-0.01em] text-abia-900">Recently updated projects</h2>
+                <p className="mt-1.5 text-slate-500 text-[17px]">Progress reports reviewed by M&amp;E officers appear here first.</p>
               </div>
-            );
-          })}
+              <Link to="/public" className="inline-flex items-center gap-1.5 min-h-[44px] font-semibold text-abia-700">
+                See all projects <ArrowRight className="w-[18px] h-[18px]" />
+              </Link>
+            </div>
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+              {featured.map((p) => (
+                <Link
+                  key={p.id}
+                  to={`/public?project=${p.id}`}
+                  className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col gap-3.5 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center justify-between gap-2.5">
+                    <span className="text-[13px] font-semibold text-abia-800 bg-abia-100 px-2.5 py-[3px] rounded-full">{p.lga}</span>
+                    <StatusPill status={p.status} />
+                  </div>
+                  <h3 className="m-0 font-bold text-[19px] leading-snug">{p.name}</h3>
+                  <div className="text-[14.5px] text-slate-500">
+                    {categoryLabel(p.category)}{p.contractor?.companyName ? ` · ${p.contractor.companyName}` : ''}
+                  </div>
+                  <ProgressBar progress={p.progress} status={p.status} showLabel />
+                  <div className="font-extrabold text-[22px] text-abia-900">{fmtNaira(p.budget)}</div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* How it works */}
+      <section id="how">
+        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-[72px]">
+          <h2 className="m-0 font-extrabold text-[34px] tracking-[-0.01em] text-abia-900 max-w-[640px]">
+            From contract to completion, in the open
+          </h2>
+          <div className="mt-9 grid grid-cols-1 md:grid-cols-3 gap-6">
+            {steps.map((s, i) => (
+              <div key={s.title} className="bg-white border border-slate-200 rounded-2xl p-7">
+                <span className="w-12 h-12 rounded-xl bg-abia-100 text-abia-700 flex items-center justify-center">
+                  <s.icon className="w-6 h-6" strokeWidth={1.75} />
+                </span>
+                <div className="mt-1.5 text-[13px] font-bold text-abia-700 tracking-wider">STEP {i + 1}</div>
+                <h3 className="mt-1 mb-0 font-bold text-xl">{s.title}</h3>
+                <p className="mt-2 mb-0 text-slate-500 text-base">{s.text}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* Audiences */}
+      <section id="audiences" className="bg-white border-y border-slate-200">
+        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 py-[72px] grid grid-cols-1 md:grid-cols-3 gap-6">
+          {audiences.map((a) => (
+            <div key={a.title} className="border border-slate-200 rounded-2xl p-7 flex flex-col gap-2.5">
+              <h3 className="m-0 font-bold text-[21px] text-abia-900">{a.title}</h3>
+              <p className="m-0 text-slate-500">{a.text}</p>
+              <Link to={a.link} className="mt-auto min-h-[44px] inline-flex items-center gap-1.5 font-semibold text-abia-700">
+                {a.cta} <ArrowRight className="w-[18px] h-[18px]" />
+              </Link>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Footer */}
-      <footer className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
-            <div className="col-span-2">
-              <div className="flex items-center space-x-4 mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-abia-600 to-abia-800 rounded-2xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-extrabold text-xl">GPT</span>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-extrabold">Government Project Tracker</h3>
-                  <p className="text-gray-400 text-base font-medium">Digital Accountability Platform</p>
-                </div>
-              </div>
-              <p className="text-gray-300 mb-6 text-lg leading-relaxed">
-                Enhancing transparency, accountability, and public trust in government project management and delivery.
-              </p>
-              <div className="flex space-x-6">
-                <a href="#" className="text-gray-400 hover:text-white transition-colors transform hover:scale-125 duration-300">
-                  <Globe className="h-6 w-6" />
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors transform hover:scale-125 duration-300">
-                  <Mail className="h-6 w-6" />
-                </a>
-                <a href="#" className="text-gray-400 hover:text-white transition-colors transform hover:scale-125 duration-300">
-                  <Phone className="h-6 w-6" />
-                </a>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="text-xl font-extrabold mb-6">Quick Links</h4>
-              <ul className="space-y-4 text-base">
-                <li><Link to="/public" className="text-gray-400 hover:text-white font-medium transition-colors">Public Portal</Link></li>
-                <li><Link to="/projects" className="text-gray-400 hover:text-white font-medium transition-colors">All Projects</Link></li>
-                <li><Link to="/analytics" className="text-gray-400 hover:text-white font-medium transition-colors">Analytics</Link></li>
-                <li><Link to="/reports" className="text-gray-400 hover:text-white font-medium transition-colors">Reports</Link></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="text-xl font-extrabold mb-6">Contact</h4>
-              <div className="space-y-3 text-base text-gray-300 font-medium">
-                <p>Government Project Office</p>
-                <p>Government Secretariat</p>
-                <p>Phone: +234 800 GOV HEL</p>
-                <p>Email: info@gpt-system.gov</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center">
-            <p className="text-base text-gray-400 font-medium">
-              © 2025 Government Project Tracker. All rights reserved. | Powered by Kreatix Technologies
+      <footer className="bg-abia-950 text-abia-200">
+        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pt-14 pb-8 flex flex-wrap gap-10 justify-between">
+          <div className="flex-1 basis-[300px] max-w-[400px]">
+            <div className="font-extrabold text-xl text-white">Abia Project Tracker</div>
+            <p className="mt-2.5 text-[15px]">
+              Tracking publicly funded projects across the 17 local government areas of Abia State.
             </p>
           </div>
+          <div className="flex flex-wrap gap-14 text-[15px]">
+            <div className="flex flex-col gap-2.5">
+              <span className="text-white font-semibold">Explore</span>
+              <Link to="/public" className="hover:text-white">All projects</Link>
+              <a href="#lgas" className="hover:text-white">By LGA</a>
+              <a href="#how" className="hover:text-white">How it works</a>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <span className="text-white font-semibold">Accounts</span>
+              <Link to="/login" className="hover:text-white">Log in</Link>
+              <Link to="/login" className="hover:text-white">Contractor access</Link>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <span className="text-white font-semibold">Contact</span>
+              <span>Government Secretariat, Umuahia</span>
+              <span>info@gpt-system.gov</span>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-[1200px] mx-auto px-6 lg:px-8 pb-8 text-sm text-abia-300">
+          © 2026 Kreatix Technologies
         </div>
       </footer>
-
-      {/* Sign In Modal */}
-      <SignInModal 
-        isOpen={showSignInModal}
-        onClose={() => setShowSignInModal(false)}
-        onSignIn={signIn}
-      />
     </div>
   );
 }

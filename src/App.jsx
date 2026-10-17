@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ContractorsProvider } from './contexts/ContractorsContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import Home from './pages/Home';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
@@ -40,45 +41,29 @@ function ThemeSync() {
 
 function AppContent() {
   const location = useLocation();
-  
-  const getPageTitle = () => {
-    if (location.pathname === '/dashboard') return 'Dashboard';
-    if (location.pathname === '/projects') return 'Projects';
-    if (location.pathname.startsWith('/projects/')) return 'Project Details';
-    if (location.pathname === '/contractors') return 'Contractors';
-    if (location.pathname === '/contractors/new') return 'Add New Contractor';
-    if (location.pathname === '/me-officers/new') return 'Register M&E Officer';
-    if (location.pathname === '/contractor/dashboard') return 'Contractor Dashboard';
-    if (location.pathname === '/me/dashboard') return 'M&E Dashboard';
-    if (location.pathname === '/public') return 'Public Portal';
-    if (location.pathname === '/reports') return 'M&E Reports';
-    if (location.pathname === '/analytics') return 'Analytics';
-    if (location.pathname === '/map') return 'Map View';
-    if (location.pathname === '/settings') return 'Settings';
-    return 'Dashboard';
-  };
 
-  // Check if current route is home, public portal, or other standalone pages
-  const isStandaloneRoute = location.pathname === '/' || location.pathname === '/public';
+  // Standalone pages render without the app shell (sidebar/header)
+  const isStandaloneRoute = ['/', '/public', '/login'].includes(location.pathname);
 
   if (isStandaloneRoute) {
     return (
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/public" element={<PublicPortal />} />
+        <Route path="/login" element={<Login />} />
       </Routes>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-bg">
       <ThemeSync />
       <Sidebar />
-      
+
       <div className="lg:ml-64">
-        <Header title={getPageTitle()} />
-        
-        <main className={location.pathname === '/dashboard' ? 'p-4' : 'p-8'}>
+        <Header />
+
+        <main className="p-6 lg:p-8">
           <Routes>
             <Route path="/dashboard" element={
               <ProtectedRoute roles={['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER']}>

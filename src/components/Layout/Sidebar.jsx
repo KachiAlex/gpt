@@ -1,189 +1,143 @@
 import { useState } from 'react';
-import { 
-  Home, 
-  FolderOpen, 
-  Users, 
-  BarChart3, 
-  MapPin, 
-  Settings, 
-  Menu, 
+import {
+  LayoutDashboard,
+  Folder,
+  HardHat,
+  ClipboardCheck,
+  BarChart3,
+  Map as MapIcon,
+  Settings,
+  Menu,
   X,
+  Landmark,
   FileText,
-  Plus,
-  Download
 } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import clsx from 'clsx';
 
-const navigationItems = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Projects', href: '/projects', icon: FolderOpen },
-  { name: 'Contractors', href: '/contractors', icon: Users },
-  { name: 'M&E Reports', href: '/reports', icon: FileText },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Map View', href: '/map', icon: MapPin },
-  { name: 'Settings', href: '/settings', icon: Settings },
-];
+const roleLabels = {
+  GOVERNMENT_ADMIN: 'Government Admin',
+  GOVERNMENT_OFFICER: 'Government Officer',
+  CONTRACTOR: 'Contractor',
+  ME_OFFICER: 'Monitoring & Evaluation',
+};
 
-const quickActions = [
-  { name: 'Generate Report', href: '/reports', icon: Download, roles: ['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER'] },
-];
+const navFor = (role) => {
+  if (role === 'CONTRACTOR') {
+    return [
+      { name: 'Dashboard', href: '/contractor/dashboard', icon: LayoutDashboard },
+      { name: 'Map view', href: '/map', icon: MapIcon },
+      { name: 'Settings', href: '/settings', icon: Settings },
+    ];
+  }
+  if (role === 'ME_OFFICER') {
+    return [
+      { name: 'Review queue', href: '/me/dashboard', icon: ClipboardCheck },
+      { name: 'Projects', href: '/projects', icon: Folder },
+      { name: 'Reports', href: '/reports', icon: FileText },
+      { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+      { name: 'Map view', href: '/map', icon: MapIcon },
+      { name: 'Settings', href: '/settings', icon: Settings },
+    ];
+  }
+  return [
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Projects', href: '/projects', icon: Folder },
+    { name: 'Contractors', href: '/contractors', icon: HardHat },
+    { name: 'M&E Reports', href: '/reports', icon: ClipboardCheck },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Map view', href: '/map', icon: MapIcon },
+    { name: 'Progress', href: '/progress', icon: FileText },
+    { name: 'Settings', href: '/settings', icon: Settings },
+  ];
+};
 
-export default function Sidebar({ userRole = 'Government Official' }) {
+export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
   const { user } = useAuth();
 
-  const handleQuickAction = (action) => {
-    console.log('Quick action clicked:', action);
-    console.log('User role:', user?.role);
-    console.log('Action roles:', action.roles);
-    console.log('Can access:', action.roles?.includes(user?.role));
-    setIsOpen(false);
-    navigate(action.href);
-  };
-
-  const toggleSidebar = () => setIsOpen(!isOpen);
-
-  const getUserInitials = () => {
-    if (!user) return 'U';
-    return `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'U';
-  };
-
-  const getUserDisplayName = () => {
-    console.log('Sidebar user data:', user); // Debug log
-    if (!user) return 'User';
-    return `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User';
-  };
-
-  const getRoleDisplayName = (role) => {
-    const roleNames = {
-      'GOVERNMENT_ADMIN': 'Government Administrator',
-      'GOVERNMENT_OFFICER': 'Government Officer', 
-      'CONTRACTOR': 'Contractor',
-      'ME_OFFICER': 'M&E Officer'
-    };
-    return roleNames[role] || role;
-  };
+  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() || 'U';
+  const displayName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User';
+  const items = navFor(user?.role);
+  const isActive = (href) => location.pathname === href || (href !== '/dashboard' && location.pathname.startsWith(href + '/'));
 
   return (
     <>
       {/* Mobile menu button */}
       <button
         type="button"
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white shadow-md"
-        onClick={toggleSidebar}
+        className="lg:hidden fixed top-4 left-4 z-50 w-11 h-11 rounded-xl bg-surface border border-border flex items-center justify-center text-ink"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-label={isOpen ? 'Close menu' : 'Open menu'}
       >
-        {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
       {/* Sidebar */}
       <div className={clsx(
-        'fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-white to-gray-50/50 dark:from-gray-800 dark:to-gray-900 backdrop-blur-xl shadow-2xl border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0',
+        'fixed inset-y-0 left-0 z-40 w-64 bg-side text-[#bae6fd] flex flex-col p-5 px-3.5 transform transition-transform duration-200 lg:translate-x-0',
         isOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
-        {/* Logo and Header */}
-        <div className="flex items-center justify-center h-20 px-4 bg-gradient-to-r from-abia-600 via-abia-700 to-abia-800 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-abia-500/20 to-transparent"></div>
-          <div className="relative flex items-center space-x-3">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg transform hover:rotate-12 transition-transform duration-300">
-              <span className="text-abia-600 font-extrabold text-lg">GPT</span>
-            </div>
-            <div className="text-white">
-              <h1 className="text-base font-extrabold leading-tight">Government Project Tracker</h1>
-            </div>
-          </div>
-        </div>
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-3 px-2.5 py-1" onClick={() => setIsOpen(false)}>
+          <span className="w-10 h-10 rounded-[11px] bg-white text-abia-800 flex items-center justify-center flex-none">
+            <Landmark className="w-[22px] h-[22px]" />
+          </span>
+          <span className="flex flex-col leading-tight">
+            <span className="font-extrabold text-base text-white">Project Tracker</span>
+            <span className="text-xs text-abia-300">Abia State</span>
+          </span>
+        </Link>
 
-        {/* User Info */}
-        <div className="px-6 py-6 border-b border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50">
-          <div className="flex items-center space-x-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-abia-500 to-abia-700 rounded-2xl flex items-center justify-center shadow-lg relative overflow-hidden">
-              {user?.profileImage ? (
-                <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-white font-bold text-lg">{getUserInitials()}</span>
-              )}
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-4 border-white"></div>
-            </div>
-            <div className="flex-1">
-              <p className="text-base font-bold text-gray-900 dark:text-gray-100">{getUserDisplayName()}</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400 font-medium mt-0.5">{user ? getRoleDisplayName(user.role) : userRole}</p>
-              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-green-500 to-green-600 text-white mt-2 shadow-md">
-                {user?.role === 'GOVERNMENT_ADMIN' ? 'Admin' : 
-                 user?.role === 'ME_OFFICER' ? 'M&E' :
-                 user?.role === 'CONTRACTOR' ? 'Contractor' : 'Officer'}
-              </span>
-            </div>
+        {/* User card */}
+        {user && (
+          <div className="mt-5 flex items-center gap-3 p-3 rounded-xl bg-white/[.07]">
+            <span className="relative flex-none w-10 h-10 rounded-full bg-abia-500 text-abia-950 flex items-center justify-center font-bold text-sm overflow-hidden">
+              {user.profileImage
+                ? <img src={user.profileImage} alt="" className="w-full h-full object-cover" />
+                : initials}
+              <span className="absolute -right-px -bottom-px w-[11px] h-[11px] rounded-full bg-green-500 border-2 border-side" />
+            </span>
+            <span className="flex flex-col leading-tight min-w-0">
+              <span className="text-white font-semibold text-[15px] truncate">{displayName}</span>
+              <span className="text-[12.5px] text-abia-300">{roleLabels[user.role] || user.role}</span>
+            </span>
           </div>
-        </div>
+        )}
 
-        {/* Navigation */}
-        <nav className="mt-6 px-3">
-          <div className="space-y-1.5">
-            {navigationItems.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={clsx(
-                    'group flex items-center px-4 py-3.5 text-base font-semibold rounded-xl transition-all duration-300 relative',
-                    isActive
-                      ? 'bg-gradient-to-r from-abia-500 to-abia-600 text-white shadow-lg shadow-abia-500/30 transform scale-105'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 hover:shadow-md'
-                  )}
-                  onClick={() => setIsOpen(false)}
-                >
-                  <item.icon
-                    className={clsx(
-                      'mr-3 h-5 w-5 transition-transform duration-300',
-                      isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-400 group-hover:scale-110'
-                    )}
-                  />
-                  {item.name}
-                </Link>
-              );
-            })}
-          </div>
+        {/* Nav */}
+        <nav aria-label="Main" className="mt-5 flex flex-col gap-[3px] text-[15px] font-medium">
+          {items.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                aria-current={active ? 'page' : undefined}
+                onClick={() => setIsOpen(false)}
+                className={clsx(
+                  'min-h-[44px] flex items-center gap-3 px-3.5 rounded-[10px] transition-colors',
+                  active ? 'bg-abia-600 text-white font-semibold' : 'hover:bg-white/[.08]'
+                )}
+              >
+                <item.icon className="w-5 h-5 flex-none" strokeWidth={1.75} />
+                {item.name}
+              </Link>
+            );
+          })}
         </nav>
 
-        {/* Quick Actions */}
-        <div className="mt-10 px-3">
-          <h3 className="px-4 mb-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            Quick Actions
-          </h3>
-          <div className="space-y-2">
-            {quickActions
-              .filter(action => !action.roles || !user || action.roles.includes(user.role))
-              .map((action) => (
-                <button
-                  key={action.name}
-                  onClick={() => handleQuickAction(action)}
-                  className="group flex items-center px-4 py-3 text-base font-medium text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 transition-colors w-full text-left"
-                >
-                  <action.icon className="mr-3 h-5 w-5 text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400" />
-                  {action.name}
-                </button>
-              ))}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-            <p>Government Project Tracker v1.0</p>
-            <p>© 2025 Kreatix Technologies</p>
-          </div>
+        <div className="mt-auto pt-5 px-2.5 text-[12.5px] text-abia-300">
+          © 2026 Kreatix Technologies
         </div>
       </div>
 
-      {/* Overlay for mobile */}
+      {/* Mobile overlay */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 z-30 bg-black bg-opacity-50 lg:hidden"
+        <div
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
