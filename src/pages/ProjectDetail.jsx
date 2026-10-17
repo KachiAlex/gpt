@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Pencil, FileText, Check, X, HardHat, ShieldCheck, Download, Plus, Trash2 } from 'lucide-react';
+import { Pencil, FileText, Check, X, HardHat, ShieldCheck, Download, Plus, Trash2, Globe } from 'lucide-react';
 import clsx from 'clsx';
 import { projectAPI, contractorAPI, documentAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,6 +37,7 @@ export default function ProjectDetail() {
   const [milestoneForm, setMilestoneForm] = useState({});
   const [savingMilestone, setSavingMilestone] = useState(false);
   const [deletingMilestone, setDeletingMilestone] = useState(null);
+  const [publishing, setPublishing] = useState(false);
 
   const load = async () => {
     try {
@@ -115,6 +116,22 @@ export default function ProjectDetail() {
   };
 
   const canManage = canAccessAdminFeatures() || project.projectManagerId === user?.id;
+  const canPublish = user && ['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER'].includes(user.role);
+
+  const togglePublish = async () => {
+    setPublishing(true);
+    try {
+      const res = project.isPublic ? await projectAPI.unpublish(id) : await projectAPI.publish(id);
+      if (res?.success) {
+        setProject({ ...project, ...res.data.project });
+        showSuccess(project.isPublic ? 'Removed from the public portal' : 'Published to the public portal');
+      }
+    } catch (e) {
+      showError(e.message || 'Publication update failed');
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const openMilestoneModal = (mode, milestone) => {
     setMilestoneForm(mode === 'edit'
@@ -195,6 +212,9 @@ export default function ProjectDetail() {
           <div className="flex flex-wrap items-center gap-2.5">
             <StatusPill status={project.status} />
             <span className="status-badge text-primary-800 bg-primary-100 dark:bg-soft dark:text-soft-fg">{categoryLabel(project.category)}</span>
+            {project.isPublic
+              ? <span className="status-badge text-green-800 bg-green-100 dark:bg-green-950/40 dark:text-green-300">Public</span>
+              : <span className="status-badge text-muted bg-hoverbg">Internal — not public</span>}
           </div>
           <h1 className="mt-2.5 mb-0 font-extrabold text-[32px] leading-tight tracking-[-0.015em] text-brand">{project.name}</h1>
           {project.description && (
@@ -202,6 +222,12 @@ export default function ProjectDetail() {
           )}
         </div>
         <div className="flex flex-wrap gap-2.5">
+          {canPublish && (
+            <button type="button" onClick={togglePublish} disabled={publishing} className="btn-secondary">
+              <Globe className="w-[18px] h-[18px]" strokeWidth={1.75} />
+              {publishing ? 'Updating…' : project.isPublic ? 'Unpublish' : 'Publish'}
+            </button>
+          )}
           {canManage && (
             <button type="button" onClick={openEdit} className="btn-secondary">
               <Pencil className="w-[18px] h-[18px]" strokeWidth={1.75} />

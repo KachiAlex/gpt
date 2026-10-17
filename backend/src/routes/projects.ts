@@ -188,7 +188,7 @@ router.post('/', verifyToken, requireAdmin, async (req: Request, res: Response) 
       contractorId: req.body.contractorId || null,
       projectManagerId: req.body.projectManagerId || null,
       location: req.body.location || null,
-      isPublic: typeof req.body.isPublic === 'boolean' ? req.body.isPublic : true,
+      isPublic: false, // publication is always an explicit follow-up action
     };
 
     if (!payload.name || !payload.category || !payload.lga || !payload.budget || !payload.fundingSource || !payload.startDate || !payload.expectedEndDate) {
@@ -242,6 +242,8 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
     const updates: UpdateProjectInput = {};
     for (const [key, value] of Object.entries(req.body)) {
       if (value === undefined || value === null) continue;
+      // Publication state is only changeable via the dedicated publish endpoints
+      if (key === 'isPublic' || key === 'is_public' || key === 'publishedAt' || key === 'publishedBy') continue;
       if (key === 'lga') {
         updates.lga = Array.isArray(value) ? value : [value];
       } else if (key === 'startDate' || key === 'expectedEndDate' || key === 'actualEndDate') {
@@ -268,6 +270,40 @@ const canManageProject = (req: Request, project: { projectManagerId?: string | n
   if (!req.user) return false;
   return req.user.role === 'GOVERNMENT_ADMIN' || project.projectManagerId === req.user.userId;
 };
+
+/**
+ * POST /api/projects/:id/publish — expose the project on the public portal.
+ * POST /api/projects/:id/unpublish — withdraw it.
+ * Government roles only; publication is an explicit permissioned action.
+ */
+const setPublication = (publish: boolean) =>
+  async (req: Request, res: Response) => {
+    try {
+      const project = await projectRepository.findById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ success: false, message: 'Project not found' });
+      }
+      const result = await query(
+        publish
+          ? `UPDATE projects SET is_public = TRUE, published_at = NOW(), published_by = $2, updated_at = NOW()
+             WHERE id = $1 RETURNING *`
+          : `UPDATE projects SET is_public = FALSE, updated_at = NOW()
+             WHERE id = $1 RETURNING *`,
+        publish ? [req.params.id, req.user!.userId] : [req.params.id]
+      );
+      return res.json({
+        success: true,
+        message: publish ? 'Project published to the public portal' : 'Project removed from the public portal',
+        data: { project: rowToCamelCase(result.rows[0]) },
+      });
+    } catch (error: any) {
+      console.error('Set publication error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to update publication' });
+    }
+  };
+
+router.post('/:id/publish', verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER'), setPublication(true));
+router.post('/:id/unpublish', verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER'), setPublication(false));
 
 /**
  * POST /api/projects/:id/milestones

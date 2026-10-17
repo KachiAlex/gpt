@@ -317,6 +317,12 @@ export const projectAPI = {
   getStats: () => 
     apiFetch('/projects/stats'),
 
+  publish: (id) =>
+    apiFetch(`/projects/${id}/publish`, { method: 'POST' }),
+
+  unpublish: (id) =>
+    apiFetch(`/projects/${id}/unpublish`, { method: 'POST' }),
+
   addMilestone: (projectId, milestoneData) =>
     apiFetch(`/projects/${projectId}/milestones`, {
       method: 'POST',

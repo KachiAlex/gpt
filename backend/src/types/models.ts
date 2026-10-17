@@ -146,6 +146,8 @@ export interface DbProject {
   projectManagerId?: string | null;
   location?: any;
   isPublic: boolean;
+  publishedAt?: Date | null;
+  publishedBy?: string | null;
   qualityScore: number;
   safetyCompliance?: string | null;
   weatherDelay: number;

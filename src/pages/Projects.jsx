@@ -11,7 +11,8 @@ import {
  User,
  MoreHorizontal,
  FolderOpen,
- AlertTriangle
+ AlertTriangle,
+ Globe
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
@@ -294,7 +295,10 @@ export default function Projects() {
  <td className="py-5 px-4 text-base font-mono text-muted">{project.id}</td>
  <td className="py-5 px-4">
  <div>
- <p className="font-semibold text-ink text-base">{project.name}</p>
+ <p className="font-semibold text-ink text-base flex items-center gap-1.5">
+ {project.name}
+ {project.isPublic && <Globe className="w-4 h-4 text-green-600" aria-label="Public" />}
+ </p>
  <p className="text-sm text-muted mt-1">Updated: {project.lastUpdate}</p>
  </div>
  </td>
@@ -351,7 +355,10 @@ export default function Projects() {
  <div key={project.id} className="border border-border rounded-lg p-4">
  <div className="flex items-start justify-between mb-3">
  <div>
- <h4 className="font-medium text-ink">{project.name}</h4>
+ <h4 className="font-medium text-ink flex items-center gap-1.5">
+ {project.name}
+ {project.isPublic && <Globe className="w-4 h-4 text-green-600" aria-label="Public" />}
+ </h4>
  <p className="text-sm text-muted font-mono">{project.id}</p>
  </div>
  <span className={clsx('status-badge', statusStyles[project.status])}>

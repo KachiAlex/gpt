@@ -12,7 +12,8 @@ const projectColumns = `
   id, name, description, category, lga, priority, status, progress,
   budget, allocated_budget, spent_budget, funding_source, start_date,
   expected_end_date, actual_end_date, beneficiaries, contractor_id,
-  project_manager_id, location, is_public, quality_score, safety_compliance,
+  project_manager_id, location, is_public, published_at, published_by,
+  quality_score, safety_compliance,
   weather_delay, safety_incidents, created_at, updated_at
 `;
 
