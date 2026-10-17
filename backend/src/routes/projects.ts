@@ -9,6 +9,7 @@ import {
 } from '../types/models';
 import { ProjectCategory, ProjectStatus } from '../types/domain';
 import { query, rowToCamelCase } from '../config/database';
+import { audit, auditFromReq } from '../services/auditService';
 
 const router = Router();
 
@@ -199,6 +200,7 @@ router.post('/', verifyToken, requireAdmin, async (req: Request, res: Response) 
     }
 
     const project = await projectRepository.create(payload);
+    await audit(auditFromReq(req, 'project.create', 'project', project.id, { name: project.name, budget: project.budget }));
 
     return res.status(201).json({
       success: true,
@@ -254,6 +256,7 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
     }
 
     const updatedProject = await projectRepository.update(id, updates);
+    await audit(auditFromReq(req, 'project.update', 'project', id, { fields: Object.keys(updates) }));
 
     return res.json({
       success: true,
@@ -291,6 +294,7 @@ const setPublication = (publish: boolean) =>
              WHERE id = $1 RETURNING *`,
         publish ? [req.params.id, req.user!.userId] : [req.params.id]
       );
+      await audit(auditFromReq(req, publish ? 'project.publish' : 'project.unpublish', 'project', req.params.id, { name: project.name }));
       return res.json({
         success: true,
         message: publish ? 'Project published to the public portal' : 'Project removed from the public portal',
@@ -332,6 +336,7 @@ router.post('/:id/milestones', verifyToken, async (req: Request, res: Response) 
       orderIndex: orderIndex !== undefined ? Number(orderIndex) : undefined,
     });
     await projectRepository.recomputeProjectProgress(project.id);
+    await audit(auditFromReq(req, 'milestone.create', 'project', project.id, { milestoneId: milestone.id, name: milestone.name }));
 
     return res.status(201).json({ success: true, data: { milestone } });
   } catch (error: any) {
@@ -374,6 +379,7 @@ router.put('/:id/milestones/:milestoneId', verifyToken, async (req: Request, res
 
     const updated = await projectRepository.updateMilestone(milestone.id, updates as any);
     await projectRepository.recomputeProjectProgress(project.id);
+    await audit(auditFromReq(req, 'milestone.update', 'project', project.id, { milestoneId: milestone.id, fields: Object.keys(updates) }));
 
     return res.json({ success: true, data: { milestone: updated } });
   } catch (error: any) {
@@ -403,6 +409,7 @@ router.delete('/:id/milestones/:milestoneId', verifyToken, async (req: Request, 
 
     await projectRepository.deleteMilestone(milestone.id);
     await projectRepository.recomputeProjectProgress(project.id);
+    await audit(auditFromReq(req, 'milestone.delete', 'project', project.id, { milestoneId: milestone.id, name: milestone.name }));
 
     return res.json({ success: true, message: 'Milestone deleted' });
   } catch (error: any) {
@@ -425,6 +432,7 @@ router.delete('/:id', verifyToken, requireAdmin, async (req: Request, res: Respo
     }
 
     await projectRepository.delete(id);
+    await audit(auditFromReq(req, 'project.delete', 'project', id, { name: project.name }));
 
     return res.json({ success: true, message: 'Project deleted successfully' });
   } catch (error: any) {

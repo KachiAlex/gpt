@@ -10,6 +10,7 @@ import { submissionRepository } from '../repositories/submissionRepository';
 import { contractorRepository } from '../repositories/contractorRepository';
 import { projectRepository } from '../repositories/projectRepository';
 import { notificationRepository } from '../repositories/notificationRepository';
+import { audit, auditFromReq } from '../services/auditService';
 
 const router = Router();
 
@@ -211,6 +212,8 @@ router.post('/', verifyToken, async (req: Request, res: Response) => {
       console.error('Submission notification error:', notifyError);
     }
 
+    await audit(auditFromReq(req, 'submission.create', 'submission', submission.id, { title: submission.title, projectId: submission.projectId, type: submission.type }));
+
     return res.status(201).json({
       success: true,
       message: 'Submission created successfully',
@@ -391,6 +394,8 @@ router.put('/:id/review', verifyToken, requireMEOfficer, async (req: Request, re
       console.error('Review notification error:', notifyError);
     }
 
+    await audit(auditFromReq(req, 'submission.review', 'submission', id, { action, comments: comments ? true : false }));
+
     return res.json({
       success: true,
       message: 'Submission reviewed successfully',
@@ -447,6 +452,8 @@ router.post('/:id/transition', verifyToken, async (req: Request, res: Response) 
     } catch (notifyError) {
       console.error('Transition notification error:', notifyError);
     }
+
+    await audit(auditFromReq(req, 'submission.transition', 'submission', updated.id, { toStage, status: updated.status, comment: comment ? true : false }));
 
     return res.json({ success: true, message: `Submission moved to ${updated.stage}`, data: { submission: updated } });
   } catch (error: any) {

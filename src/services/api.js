@@ -567,6 +567,12 @@ export const instanceAPI = {
     }),
 };
 
+// Audit trail (admin)
+export const auditAPI = {
+  list: (filters = {}) =>
+    apiFetch(`/audit-log?${new URLSearchParams(filters)}`),
+};
+
 // Export everything as default as well
 export default {
   authAPI,
@@ -579,5 +585,6 @@ export default {
   userAPI,
   documentAPI,
   instanceAPI,
+  auditAPI,
 };
 

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { query } from '../config/database';
 import { sendEmail, getFrontendUrl } from '../services/emailService';
+import { audit, auditFromReq } from '../services/auditService';
 import { authenticate, getTokenFromRequest } from '../middleware/auth';
 import userRepository from '../repositories/userRepository';
 import { hashPassword, verifyPassword } from '../utils/password';
@@ -58,6 +59,7 @@ router.post('/login', async (req: Request, res: Response) => {
     const user = await userRepository.findByEmail((email as string).toLowerCase());
 
     if (!user || !user.isActive) {
+      await audit({ action: 'auth.login_failed', detail: { email: (email as string)?.toLowerCase(), reason: !user ? 'unknown_email' : 'inactive' }, ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress });
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
@@ -68,6 +70,7 @@ router.post('/login', async (req: Request, res: Response) => {
     const isValidPassword = await verifyPassword(password, user.password);
 
     if (!isValidPassword) {
+      await audit({ actorId: user.id, actorEmail: user.email, actorRole: user.role, action: 'auth.login_failed', detail: { reason: 'bad_password' }, ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress });
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
@@ -81,6 +84,11 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     await userRepository.updateLastLogin(user.id);
+    await audit({
+      actorId: user.id, actorEmail: user.email, actorRole: user.role,
+      action: 'auth.login', entityType: 'user', entityId: user.id,
+      ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress,
+    });
 
     // Include contractor profile id when applicable so the client can scope queries
     const contractor = await userRepository.findContractorProfileId(user.id).catch(() => null);
@@ -216,6 +224,8 @@ router.post('/register', async (req: Request, res: Response) => {
       profileImage: null,
     });
 
+    await audit(auditFromReq(req, 'user.register', 'user', user.id, { email: user.email, role: user.role }));
+
     return res.status(201).json({
       success: true,
       message: 'User registered successfully',
@@ -321,6 +331,7 @@ router.put('/change-password', authenticate, async (req: Request, res: Response)
     const hashedNewPassword = await hashPassword(newPassword);
 
     await userRepository.updatePassword(user.id, hashedNewPassword);
+    await audit(auditFromReq(req, 'auth.password_change', 'user', user.id));
 
     return res.json({
       success: true,
@@ -415,6 +426,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     const reset = result.rows[0];
     await userRepository.updatePassword(reset.user_id, await hashPassword(newPassword));
     await query('UPDATE password_resets SET used_at = NOW() WHERE id = $1', [reset.id]);
+    await audit({ actorId: reset.user_id, action: 'auth.password_reset', entityType: 'user', entityId: reset.user_id, ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress });
 
     return res.json({ success: true, message: 'Password has been reset. You can now log in.' });
   } catch (error: any) {

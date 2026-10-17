@@ -113,6 +113,7 @@ import fileRoutes from './routes/files';
 import userRoutes from './routes/users';
 import reportRoutes from './routes/reports';
 import instanceRoutes from './routes/instance';
+import auditRoutes from './routes/audit';
 import seedRoutes from './routes/seed';
 
 // API routes
@@ -126,6 +127,7 @@ app.use('/api/files', fileRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/instance', instanceRoutes);
+app.use('/api/audit-log', auditRoutes);
 // Seed endpoint: disabled in production unless explicitly re-enabled
 if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SEED_ROUTE === 'true') {
   app.use('/api/seed', seedRoutes);

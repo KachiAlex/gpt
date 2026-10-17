@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { query, rowToCamelCase, getClient } from '../config/database';
 import { authenticate, requireRoles } from '../middleware/auth';
 import { getStages } from '../services/workflowService';
+import { audit, auditFromReq } from '../services/auditService';
 
 const router = Router();
 
@@ -100,6 +101,7 @@ router.put('/', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Requ
         values
       );
     }
+    await audit(auditFromReq(req, 'instance.update', 'instance', '1', { fields: Object.keys(req.body || {}) }));
     return res.json({ success: true, data: { instance: await getConfig() } });
   } catch (error: any) {
     console.error('Update instance config error:', error);
@@ -192,6 +194,10 @@ router.put('/workflow', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (r
     await client.query(`UPDATE workflow_stages SET order_index = $1 WHERE key = 'APPROVED'`, [order]);
     await client.query(`UPDATE workflow_stages SET order_index = $1 WHERE key = 'REJECTED'`, [order + 1]);
 
+    await audit(
+      auditFromReq(req, 'instance.workflow', 'instance', '1', { stageCount: seen.size, stages: [...seen] }),
+      client
+    );
     await client.query('COMMIT');
     return res.json({ success: true, data: { stages: await getStages() } });
   } catch (error: any) {

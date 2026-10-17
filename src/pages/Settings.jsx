@@ -25,13 +25,14 @@ import {
  Image,
  GitBranch,
  Plus,
- Trash2
+ Trash2,
+ ScrollText
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../contexts/AuthContext';
 import { useInstance } from '../contexts/InstanceContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { authAPI, userAPI, instanceAPI } from '../services/api';
+import { authAPI, userAPI, instanceAPI, auditAPI } from '../services/api';
 import { showError, showSuccess } from '../utils/toast';
 
 export default function Settings() {
@@ -41,6 +42,8 @@ export default function Settings() {
  const isAdmin = user?.role === 'GOVERNMENT_ADMIN';
  const [wfStages, setWfStages] = useState([]);
  const [wfSaving, setWfSaving] = useState(false);
+ const [auditEntries, setAuditEntries] = useState([]);
+ const [auditLoading, setAuditLoading] = useState(false);
  const fileInputRef = useRef(null);
  const [activeTab, setActiveTab] = useState('profile');
  const [showPassword, setShowPassword] = useState(false);
@@ -110,6 +113,15 @@ export default function Settings() {
    );
  }, [workflowStages]);
 
+ useEffect(() => {
+   if (activeTab !== 'audit' || !isAdmin) return;
+   setAuditLoading(true);
+   auditAPI.list({ limit: 100 })
+     .then((res) => setAuditEntries(res?.data?.entries || []))
+     .catch(() => showError('Failed to load audit log'))
+     .finally(() => setAuditLoading(false));
+ }, [activeTab, isAdmin]);
+
  const REVIEW_ROLES = [
    ['ME_OFFICER', 'M&E Officer'],
    ['GOVERNMENT_OFFICER', 'Government Officer'],
@@ -145,7 +157,10 @@ export default function Settings() {
  { id: 'notifications', name: 'Notifications', icon: Bell },
  { id: 'security', name: 'Security', icon: Shield },
  { id: 'appearance', name: 'Appearance', icon: Palette },
- ...(isAdmin ? [{ id: 'workflow', name: 'Workflow', icon: GitBranch }] : []),
+ ...(isAdmin ? [
+   { id: 'workflow', name: 'Workflow', icon: GitBranch },
+   { id: 'audit', name: 'Audit Log', icon: ScrollText },
+ ] : []),
  { id: 'system', name: 'System', icon: Database }
  ];
 
@@ -942,6 +957,46 @@ export default function Settings() {
    </button>
  </div>
  </div>
+ </div>
+ )}
+
+ {/* Audit log (admin) */}
+ {activeTab === 'audit' && isAdmin && (
+ <div className="card">
+ <h3 className="text-lg font-semibold text-ink mb-2">Audit log</h3>
+ <p className="text-sm text-muted mb-6">Append-only record of sensitive actions — publications, reviews, settings changes, logins.</p>
+ {auditLoading ? (
+   <p className="text-muted text-sm py-6 text-center">Loading…</p>
+ ) : auditEntries.length === 0 ? (
+   <p className="text-muted text-sm py-6 text-center">No audit entries yet.</p>
+ ) : (
+   <div className="overflow-x-auto -mx-2">
+     <table className="w-full text-sm">
+       <thead>
+         <tr className="text-left text-muted border-b border-border">
+           <th className="py-2 px-2 font-medium">When</th>
+           <th className="py-2 px-2 font-medium">Actor</th>
+           <th className="py-2 px-2 font-medium">Action</th>
+           <th className="py-2 px-2 font-medium">Entity</th>
+           <th className="py-2 px-2 font-medium">Detail</th>
+         </tr>
+       </thead>
+       <tbody>
+         {auditEntries.map((e) => (
+           <tr key={e.id} className="border-b border-border last:border-0">
+             <td className="py-2.5 px-2 whitespace-nowrap text-muted">{new Date(e.createdAt).toLocaleString()}</td>
+             <td className="py-2.5 px-2">{e.actorEmail || 'system'}<span className="block text-xs text-muted">{e.actorRole || ''}</span></td>
+             <td className="py-2.5 px-2 font-mono text-xs">{e.action}</td>
+             <td className="py-2.5 px-2 text-muted">{e.entityType || '—'}</td>
+             <td className="py-2.5 px-2 text-muted max-w-[280px] truncate" title={JSON.stringify(e.detail)}>
+               {e.detail?.name || e.detail?.title || e.detail?.toStage || (Object.keys(e.detail || {}).length ? JSON.stringify(e.detail) : '—')}
+             </td>
+           </tr>
+         ))}
+       </tbody>
+     </table>
+   </div>
+ )}
  </div>
  )}
 
