@@ -98,6 +98,7 @@ router.get('/stats', verifyToken, async (_req, res) => {
       },
       totalBudget: projects.reduce((sum, p) => sum + (p.allocatedBudget || p.budget), 0),
       averageProgress: projects.length > 0 ? projects.reduce((sum, p) => sum + p.progress, 0) / projects.length : 0,
+      lgaCount: new Set(projects.flatMap(p => Array.isArray(p.lga) ? p.lga : []).filter(Boolean)).size,
       // Additional stats for other dashboard components
       projects: {
         total: projects.length,

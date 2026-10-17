@@ -27,7 +27,7 @@ import {
 import clsx from 'clsx';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { authAPI } from '../services/api';
+import { authAPI, userAPI } from '../services/api';
 
 export default function Settings() {
  const { user, updateUser } = useAuth();
@@ -39,6 +39,9 @@ export default function Settings() {
  const [successMessage, setSuccessMessage] = useState('');
  const [profileImage, setProfileImage] = useState(null);
  const [profileImagePreview, setProfileImagePreview] = useState(null);
+ const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+ const [passwordSaving, setPasswordSaving] = useState(false);
+ const [passwordMessage, setPasswordMessage] = useState('');
  
  // Initialize form data with user data
  const [formData, setFormData] = useState({
@@ -161,12 +164,22 @@ export default function Settings() {
  setSuccessMessage('');
 
  try {
+ // Upload a newly selected profile image through the files endpoint,
+ // which stores it and sets user.profileImage to the public URL.
+ let uploadedImageUrl = null;
+ if (profileImage) {
+ const uploadData = new FormData();
+ uploadData.append('file', profileImage);
+ const uploadRes = await userAPI.uploadProfileImage(uploadData);
+ if (uploadRes?.success) {
+ uploadedImageUrl = uploadRes.data?.profileImage || null;
+ }
+ }
+
  // Prepare updated user data with profile image and preferences
  const updatedUserData = { ...formData };
- 
- // If there's a profile image, store the preview URL
- if (profileImagePreview) {
- updatedUserData.profileImage = profileImagePreview;
+ if (uploadedImageUrl) {
+ updatedUserData.profileImage = uploadedImageUrl;
  }
  
  // Add preferences
@@ -196,6 +209,39 @@ export default function Settings() {
  alert(error.message || 'Failed to update profile. Please try again.');
  } finally {
  setSaving(false);
+ }
+ };
+
+ const handleChangePassword = async () => {
+ setPasswordMessage('');
+ if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+ setPasswordMessage('Enter your current password and a new password.');
+ return;
+ }
+ if (passwordForm.newPassword.length < 8) {
+ setPasswordMessage('New password must be at least 8 characters.');
+ return;
+ }
+ if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+ setPasswordMessage('New passwords do not match.');
+ return;
+ }
+ setPasswordSaving(true);
+ try {
+ const res = await authAPI.changePassword({
+ currentPassword: passwordForm.currentPassword,
+ newPassword: passwordForm.newPassword,
+ });
+ if (res?.success) {
+ setPasswordMessage('Password changed successfully.');
+ setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+ } else {
+ setPasswordMessage(res?.message || 'Failed to change password.');
+ }
+ } catch (err) {
+ setPasswordMessage(err.message || 'Failed to change password.');
+ } finally {
+ setPasswordSaving(false);
  }
  };
 
@@ -608,6 +654,8 @@ export default function Settings() {
  <div className="relative">
  <input
  type={showPassword ? 'text' : 'password'}
+ value={passwordForm.currentPassword}
+ onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
  className="w-full pr-10 pl-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-abia-500 focus:border-transparent"
  />
  <button
@@ -631,6 +679,8 @@ export default function Settings() {
  </label>
  <input
  type="password"
+ value={passwordForm.newPassword}
+ onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
  className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
  />
  </div>
@@ -640,6 +690,8 @@ export default function Settings() {
  </label>
  <input
  type="password"
+ value={passwordForm.confirmPassword}
+ onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
  className="w-full border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-abia-500 focus:border-transparent"
  />
  </div>
@@ -666,51 +718,20 @@ export default function Settings() {
  </li>
  </ul>
  </div>
- </div>
- </div>
 
- <div className="card">
- <h3 className="text-lg font-semibold text-ink mb-6">Two-Factor Authentication</h3>
- <div className="flex items-start space-x-4">
- <div className="w-12 h-12 bg-green-100 dark:bg-green-950/50 rounded-lg flex items-center justify-center">
- <Shield className="h-6 w-6 text-green-700 dark:text-green-400" />
- </div>
- <div className="flex-1">
- <h4 className="text-sm font-medium text-ink mb-1">Enhanced Security</h4>
- <p className="text-sm text-muted mb-4">
- Add an extra layer of security to your account by enabling two-factor authentication.
+ {passwordMessage && (
+ <p className={clsx('text-sm', passwordMessage.includes('success') ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400')}>
+ {passwordMessage}
  </p>
- <button className="btn-primary">
- <Key className="h-4 w-4 mr-2" />
- Enable 2FA
+ )}
+ <button
+ type="button"
+ onClick={handleChangePassword}
+ disabled={passwordSaving}
+ className="btn-primary self-start"
+ >
+ {passwordSaving ? 'Changing…' : 'Change password'}
  </button>
- </div>
- </div>
- </div>
-
- <div className="card">
- <h3 className="text-lg font-semibold text-ink mb-6">Active Sessions</h3>
- <div className="space-y-4">
- <div className="flex items-center justify-between p-4 bg-bg rounded-lg">
- <div className="flex items-center space-x-3">
- <Monitor className="h-5 w-5 text-muted" />
- <div>
- <p className="text-sm font-medium text-ink">Windows PC - Chrome</p>
- <p className="text-sm text-muted">Umuahia, Nigeria • Current session</p>
- </div>
- </div>
- <span className="text-sm text-green-700 dark:text-green-400 font-medium">Active</span>
- </div>
- <div className="flex items-center justify-between p-4 bg-bg rounded-lg">
- <div className="flex items-center space-x-3">
- <Smartphone className="h-5 w-5 text-muted" />
- <div>
- <p className="text-sm font-medium text-ink">iPhone - Safari</p>
- <p className="text-sm text-muted">Abuja, Nigeria • 2 hours ago</p>
- </div>
- </div>
- <button className="text-sm text-red-700 dark:text-red-400 hover:text-red-700 dark:text-red-400">Revoke</button>
- </div>
  </div>
  </div>
  </div>

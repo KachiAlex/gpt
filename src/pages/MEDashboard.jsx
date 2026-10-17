@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Check, X, FileText, ClipboardCheck, Inbox } from 'lucide-react';
 import clsx from 'clsx';
-import { submissionAPI, documentAPI } from '../services/api';
+import { submissionAPI, documentAPI, projectAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import EmptyState from '../components/ui/EmptyState';
 import { statusLabel, fmtNairaCompact, fmtAgo } from '../utils/statusMap';
@@ -20,6 +20,7 @@ export default function MEDashboard() {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [comments, setComments] = useState('');
   const [acting, setActing] = useState(false);
 
@@ -45,6 +46,36 @@ export default function MEDashboard() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch full submission details (milestone, documents) + project facts on selection
+  useEffect(() => {
+    if (!selectedId) { setDetail(null); return; }
+    let isMounted = true;
+    setDetail(null);
+    submissionAPI.getById(selectedId)
+      .then(async (res) => {
+        const d = res?.data?.submission;
+        if (!isMounted || !d) return;
+        let projectFacts = null;
+        if (d.project?.id) {
+          try {
+            const pRes = await projectAPI.getById(d.project.id);
+            const p = pRes?.data?.project;
+            if (p) {
+              projectFacts = {
+                progress: p.progress,
+                budget: p.allocatedBudget || p.budget,
+              };
+            }
+          } catch { /* facts stay null */ }
+        }
+        if (isMounted) {
+          setDetail({ ...d, projectFacts });
+        }
+      })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, [selectedId]);
 
   const selected = submissions.find((s) => s.id === selectedId) || null;
   const undecided = selected && QUEUE_STATUSES.includes(selected.status);
@@ -155,7 +186,7 @@ export default function MEDashboard() {
               <>
                 <div>
                   <div className="text-[13px] font-semibold text-soft-fg tracking-[0.04em] uppercase">
-                    {selected.milestone?.name || selected.type || 'Submission'}
+                    {detail?.milestone?.name || selected.type || 'Submission'}
                   </div>
                   <h2 className="mt-1 mb-0 font-extrabold text-2xl leading-snug text-brand">
                     {selected.project?.name || selected.title}
@@ -170,15 +201,15 @@ export default function MEDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="bg-bg rounded-xl px-3.5 py-3">
                     <div className="text-[13px] text-muted">Progress claimed</div>
-                    <div className="font-extrabold text-[22px] text-brand">{selected.progressClaimed ?? selected.progress ?? '—'}%</div>
+                    <div className="font-extrabold text-[22px] text-brand">{selected.progress ?? '—'}%</div>
                   </div>
                   <div className="bg-bg rounded-xl px-3.5 py-3">
                     <div className="text-[13px] text-muted">Last verified</div>
-                    <div className="font-extrabold text-[22px]">{selected.project?.progress ?? '—'}%</div>
+                    <div className="font-extrabold text-[22px]">{detail?.projectFacts?.progress ?? '…'}%</div>
                   </div>
                   <div className="bg-bg rounded-xl px-3.5 py-3">
                     <div className="text-[13px] text-muted">Budget</div>
-                    <div className="font-extrabold text-[22px]">{fmtNairaCompact(selected.project?.allocatedBudget || selected.project?.budget)}</div>
+                    <div className="font-extrabold text-[22px]">{detail?.projectFacts ? fmtNairaCompact(detail.projectFacts.budget) : '…'}</div>
                   </div>
                 </div>
 
@@ -189,11 +220,11 @@ export default function MEDashboard() {
                   </p>
                 </div>
 
-                {(selected.documents?.length || selected.files?.length) ? (
+                {(detail?.documents?.length || selected.documents?.length || selected.files?.length) ? (
                   <div>
                     <h3 className="m-0 font-bold text-base">Documents</h3>
                     <div className="mt-2 flex flex-col gap-2">
-                      {(selected.documents || selected.files || []).map((doc) => (
+                      {(detail?.documents || selected.documents || selected.files || []).map((doc) => (
                         <button
                           key={doc.id}
                           type="button"

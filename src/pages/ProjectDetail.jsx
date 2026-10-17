@@ -264,8 +264,8 @@ export default function ProjectDetail() {
                     <div className="text-[13px] text-muted">Completion rate</div>
                   </div>
                   <div className="bg-bg rounded-xl p-3">
-                    <div className="font-extrabold text-xl text-brand">{performance?.onTimeRate ?? '—'}%</div>
-                    <div className="text-[13px] text-muted">On-time delivery</div>
+                    <div className="font-extrabold text-xl text-brand">{performance?.approvalRate ?? '—'}%</div>
+                    <div className="text-[13px] text-muted">Approval rate</div>
                   </div>
                 </div>
               </>

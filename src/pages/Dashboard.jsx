@@ -34,7 +34,7 @@ export default function Dashboard() {
   }, []);
 
   const isEmpty = stats && stats.total === 0;
-  const lgaCount = stats?.byLga ? Object.keys(stats.byLga).length : 17;
+  const lgaCount = stats?.lgaCount ?? 17;
 
   const statusBars = stats
     ? ['COMPLETED', 'IN_PROGRESS', 'NEAR_COMPLETION', 'DELAYED', 'NOT_STARTED', 'ON_HOLD', 'CANCELLED']

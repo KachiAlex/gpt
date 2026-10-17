@@ -25,6 +25,11 @@ const mapContractor = (row: any): DbContractorProfile => {
   };
 };
 
+const prefixedColumns = contractorColumns
+  .split(',')
+  .map((c) => `cp.${c.trim()}`)
+  .join(', ');
+
 const mapContractorWithUser = (row: any): ContractorWithUser => {
   const contractor = mapContractor(row);
   const user = row.user_id_ref
@@ -88,7 +93,7 @@ export const contractorRepository = {
 
     const dataParams = [...params, limit, offset];
     const contractorsResult = await query(
-      `SELECT cp.${contractorColumns.replace(/\s+/g, ' ')},
+      `SELECT ${prefixedColumns},
         u.id as user_id_ref,
         u.first_name, u.last_name, u.email, u.phone, u.is_active
        FROM contractor_profiles cp
@@ -185,7 +190,7 @@ export const contractorRepository = {
 
   async getWithUser(id: string): Promise<ContractorWithUser | null> {
     const result = await query(
-      `SELECT cp.${contractorColumns.replace(/\s+/g, ' ')},
+      `SELECT ${prefixedColumns},
         u.id as user_id_ref,
         u.first_name, u.last_name, u.email, u.phone, u.is_active
        FROM contractor_profiles cp
