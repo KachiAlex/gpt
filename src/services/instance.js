@@ -15,6 +15,8 @@ const DEFAULTS = {
   areaLabelPlural: 'LGAs',
   contactEmail: null,
   footerOrg: 'Kreatix Technologies',
+  faviconUrl: null,
+  accentColor: null,
   // Provider-licensed modules (INSTANCE_FEATURES env on the backend).
   features: { publicPortal: true, map: true, analytics: true, reports: true, progress: true },
 };
@@ -36,6 +38,18 @@ const applyBrand = (c) => {
   }
   if (c.sidebarColor) {
     root.setProperty('--side', c.sidebarColor);
+  }
+  if (c.accentColor) {
+    root.setProperty('--accent', c.accentColor);
+  }
+  if (c.faviconUrl) {
+    let link = document.querySelector('link[rel~="icon"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = c.faviconUrl;
   }
 };
 

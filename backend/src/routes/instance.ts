@@ -17,6 +17,8 @@ interface InstanceConfig {
   areaLabelPlural: string;
   contactEmail: string | null;
   footerOrg: string;
+  faviconUrl: string | null;
+  accentColor: string | null;
   features: Record<string, boolean>;
 }
 
@@ -31,6 +33,8 @@ const envDefaults = (): InstanceConfig => ({
   areaLabelPlural: process.env.INSTANCE_AREA_LABEL_PLURAL || 'LGAs',
   contactEmail: process.env.INSTANCE_CONTACT_EMAIL || null,
   footerOrg: process.env.INSTANCE_FOOTER_ORG || 'Kreatix Technologies',
+  faviconUrl: process.env.INSTANCE_FAVICON_URL || null,
+  accentColor: process.env.INSTANCE_ACCENT_COLOR || null,
   features: getFeatures(),
 });
 
@@ -51,6 +55,8 @@ const getConfig = async (): Promise<InstanceConfig> => {
       areaLabelPlural: row.areaLabelPlural || defaults.areaLabelPlural,
       contactEmail: row.contactEmail ?? defaults.contactEmail,
       footerOrg: row.footerOrg || defaults.footerOrg,
+      faviconUrl: row.faviconUrl ?? defaults.faviconUrl,
+      accentColor: row.accentColor ?? defaults.accentColor,
       features: defaults.features,
     };
   } catch {
@@ -82,6 +88,8 @@ const EDITABLE_FIELDS: Record<string, string> = {
   areaLabelPlural: 'area_label_plural',
   contactEmail: 'contact_email',
   footerOrg: 'footer_org',
+  faviconUrl: 'favicon_url',
+  accentColor: 'accent_color',
 };
 
 /**
