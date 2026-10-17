@@ -96,6 +96,8 @@ export default function ProjectDetail() {
       description: project.description || '',
       status: project.status,
       progress: project.progress,
+      latitude: project.location?.lat ?? '',
+      longitude: project.location?.lng ?? '',
     });
     setIsEditOpen(true);
   };
@@ -103,7 +105,13 @@ export default function ProjectDetail() {
   const saveEdit = async () => {
     setSaving(true);
     try {
-      const res = await projectAPI.update(id, { ...editForm, progress: Number(editForm.progress) });
+      const payload = { ...editForm, progress: Number(editForm.progress) };
+      payload.location = payload.latitude !== '' && payload.longitude !== ''
+        ? { lat: parseFloat(payload.latitude), lng: parseFloat(payload.longitude) }
+        : null;
+      delete payload.latitude;
+      delete payload.longitude;
+      const res = await projectAPI.update(id, payload);
       if (res?.success) {
         showSuccess('Project updated');
         setIsEditOpen(false);
@@ -490,6 +498,14 @@ export default function ProjectDetail() {
                 <div>
                   <label className="label" htmlFor="ep-progress">Progress %</label>
                   <input id="ep-progress" type="number" min={0} max={100} className="input" value={editForm.progress ?? 0} onChange={(e) => setEditForm({ ...editForm, progress: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label" htmlFor="ep-lat">Latitude</label>
+                  <input id="ep-lat" type="number" step="any" min={-90} max={90} className="input" value={editForm.latitude ?? ''} onChange={(e) => setEditForm({ ...editForm, latitude: e.target.value })} placeholder="9.0820" />
+                </div>
+                <div>
+                  <label className="label" htmlFor="ep-lng">Longitude</label>
+                  <input id="ep-lng" type="number" step="any" min={-180} max={180} className="input" value={editForm.longitude ?? ''} onChange={(e) => setEditForm({ ...editForm, longitude: e.target.value })} placeholder="8.6753" />
                 </div>
               </div>
               <div className="flex gap-3 mt-2">

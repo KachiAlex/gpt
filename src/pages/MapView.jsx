@@ -1,14 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
- MapPin,
  Search,
  Filter,
  Layers,
- Navigation,
- ZoomIn,
- ZoomOut,
- RotateCcw,
  Eye,
  Info,
  Calendar,
@@ -48,13 +45,47 @@ const PRIORITY_LABELS = {
 
 const formatNaira = fmtNairaCompact;
 
-const getCoords = (location) => {
+export const getCoords = (location) => {
  if (!location || typeof location !== 'object') return null;
  const lat = Number(location.lat ?? location.latitude);
  const lng = Number(location.lng ?? location.lon ?? location.longitude);
  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
  return null;
 };
+
+const TILE_LAYERS = {
+ street: {
+   url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+   attribution: '&copy; OpenStreetMap contributors',
+ },
+ satellite: {
+   url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+   attribution: 'Esri, Maxar, Earthstar Geographics',
+ },
+ terrain: {
+   url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+   attribution: '&copy; OpenTopoMap (CC-BY-SA)',
+ },
+};
+
+// Re-frames the map whenever the set of geocoded projects changes.
+function FitBounds({ points }) {
+ const map = useMap();
+ useEffect(() => {
+   if (!points.length) return;
+   const lats = points.map((p) => p.lat);
+   const lngs = points.map((p) => p.lng);
+   if (points.length === 1) {
+     map.setView([points[0].lat, points[0].lng], 12);
+   } else {
+     map.fitBounds(
+       [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
+       { padding: [40, 40] }
+     );
+   }
+ }, [points, map]);
+ return null;
+}
 
 export default function MapView() {
  const [projects, setProjects] = useState([]);
@@ -116,32 +147,6 @@ export default function MapView() {
  })),
  [projects, contractorNames]
  );
-
- // Bounding box for geo-positioned markers (falls back to index scatter)
- const bounds = useMemo(() => {
- const coords = projectLocations.map((p) => p.coords).filter(Boolean);
- if (coords.length === 0) return null;
- const lats = coords.map((c) => c.lat);
- const lngs = coords.map((c) => c.lng);
- return {
- minLat: Math.min(...lats), maxLat: Math.max(...lats),
- minLng: Math.min(...lngs), maxLng: Math.max(...lngs),
- };
- }, [projectLocations]);
-
- const markerPosition = (project, index) => {
- if (project.coords && bounds) {
- const latSpan = bounds.maxLat - bounds.minLat || 0.01;
- const lngSpan = bounds.maxLng - bounds.minLng || 0.01;
- const left = 10 + ((project.coords.lng - bounds.minLng) / lngSpan) * 80;
- const top = 90 - ((project.coords.lat - bounds.minLat) / latSpan) * 80;
- return { left: `${left}%`, top: `${top}%` };
- }
- return {
- left: `${20 + (index * 15) % 60}%`,
- top: `${30 + (index * 12) % 40}%`,
- };
- };
 
  const categories = useMemo(
  () => ['All Categories', ...new Set(projectLocations.map((p) => p.categoryLabel))],
@@ -251,24 +256,51 @@ export default function MapView() {
  <div className="lg:col-span-3">
  <div className="card p-0 overflow-hidden">
  <div className="relative h-[600px]">
- {/* Map Background */}
- <div className="absolute inset-0 bg-hoverbg flex items-center justify-center">
- <div className="text-center">
- <MapPin className="h-16 w-16 text-muted mx-auto mb-4" />
- <p className="text-muted mb-2">Interactive Map</p>
- <p className="text-sm text-muted">Project Locations</p>
- </div>
- </div>
+ <MapContainer
+   center={[9.0, 7.5]}
+   zoom={5}
+   className="absolute inset-0 h-full w-full z-0"
+   scrollWheelZoom
+ >
+   <TileLayer
+     key={mapView}
+     url={TILE_LAYERS[mapView]?.url || TILE_LAYERS.street.url}
+     attribution={TILE_LAYERS[mapView]?.attribution || TILE_LAYERS.street.attribution}
+   />
+   <FitBounds points={filteredProjects.map((p) => p.coords).filter(Boolean)} />
+   {!loading && !error && filteredProjects.filter((p) => p.coords).map((project) => (
+     <CircleMarker
+       key={project.id}
+       center={[project.coords.lat, project.coords.lng]}
+       radius={9}
+       pathOptions={{
+         color: '#ffffff',
+         weight: 2,
+         fillColor: project.statusColor,
+         fillOpacity: 0.9,
+       }}
+       eventHandlers={{ click: () => setSelectedProject(project) }}
+     >
+       <Popup>
+         <div className="text-sm">
+           <div className="font-semibold">{project.name}</div>
+           <div>{project.statusLabel} · {project.progress}%</div>
+           <div>{project.lga}</div>
+         </div>
+       </Popup>
+     </CircleMarker>
+   ))}
+ </MapContainer>
 
  {loading && (
- <div className="absolute inset-0 bg-surface bg-opacity-70 flex items-center justify-center z-10">
+ <div className="absolute inset-0 bg-surface bg-opacity-70 flex items-center justify-center z-[1000]">
  <RefreshCw className="h-6 w-6 text-muted animate-spin mr-2" />
  <span className="text-muted">Loading projects...</span>
  </div>
  )}
 
  {error && !loading && (
- <div className="absolute inset-0 bg-surface bg-opacity-80 flex items-center justify-center z-10">
+ <div className="absolute inset-0 bg-surface bg-opacity-80 flex items-center justify-center z-[1000]">
  <div className="text-center">
  <AlertTriangle className="h-8 w-8 text-red-400 mx-auto mb-2" />
  <p className="text-ink mb-3">{error}</p>
@@ -277,45 +309,17 @@ export default function MapView() {
  </div>
  )}
 
- {/* Map Controls */}
- <div className="absolute top-4 right-4 flex flex-col space-y-2">
- <button className="w-10 h-10 bg-surface rounded-lg shadow-sm flex items-center justify-center hover:bg-bg">
- <ZoomIn className="h-4 w-4 text-muted" />
- </button>
- <button className="w-10 h-10 bg-surface rounded-lg shadow-sm flex items-center justify-center hover:bg-bg">
- <ZoomOut className="h-4 w-4 text-muted" />
- </button>
- <button className="w-10 h-10 bg-surface rounded-lg shadow-sm flex items-center justify-center hover:bg-bg">
- <Navigation className="h-4 w-4 text-muted" />
- </button>
- <button className="w-10 h-10 bg-surface rounded-lg shadow-sm flex items-center justify-center hover:bg-bg">
- <RotateCcw className="h-4 w-4 text-muted" />
- </button>
+ {!loading && !error && filteredProjects.every((p) => !p.coords) && (
+ <div className="absolute inset-x-0 bottom-4 flex justify-center z-[1000] pointer-events-none">
+   <span className="bg-surface shadow rounded-lg px-4 py-2 text-sm text-muted">
+     No coordinates yet — set a project's location to place it on the map
+   </span>
  </div>
-
- {/* Project Markers */}
- {!loading && !error && filteredProjects.map((project, index) => (
- <div
- key={project.id}
- className="absolute cursor-pointer transform -translate-x-1/2 -translate-y-1/2"
- style={markerPosition(project, index)}
- onClick={() => setSelectedProject(project)}
- >
- <div className="relative">
- <div
- className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
- style={{ backgroundColor: project.statusColor }}
- />
- <div className="absolute -top-1 -right-1 w-2 h-2 bg-surface rounded-full flex items-center justify-center text-xs">
- {project.categoryIcon}
- </div>
- </div>
- </div>
- ))}
+ )}
 
  {/* Legend */}
  {showLegend && (
- <div className="absolute bottom-4 left-4 bg-surface rounded-lg shadow-sm p-4 max-w-xs">
+ <div className="absolute bottom-4 left-4 bg-surface rounded-lg shadow-sm p-4 max-w-xs z-[1000]">
  <h4 className="font-semibold text-ink mb-3">Map Legend</h4>
  <div className="space-y-2">
  <div className="text-sm font-medium text-ink mb-1">Status</div>

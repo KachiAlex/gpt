@@ -82,6 +82,69 @@ router.get('/', verifyToken, async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/contractors/risk
+ * Computed risk score per contractor. Signals:
+ *   delayed/on-hold projects, rejected submission rate, overdue open
+ *   milestones, active projects with no submission in 60 days.
+ * Registered before /:id so 'risk' isn't read as a contractor id.
+ */
+router.get('/risk', verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER'), async (_req: Request, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT
+         cp.id AS contractor_id,
+         cp.company_name,
+         COUNT(DISTINCT p.id) AS total_projects,
+         COUNT(DISTINCT p.id) FILTER (WHERE p.status IN ('DELAYED', 'ON_HOLD')) AS stalled_projects,
+         COUNT(DISTINCT m.id) FILTER (
+           WHERE m.due_date < NOW() AND m.status NOT IN ('COMPLETED', 'APPROVED')
+         ) AS overdue_milestones,
+         COUNT(s.id) AS total_submissions,
+         COUNT(s.id) FILTER (WHERE s.status = 'REJECTED') AS rejected_submissions,
+         MAX(s.submitted_at) AS last_submission_at
+       FROM contractor_profiles cp
+       LEFT JOIN projects p ON p.contractor_id = cp.id
+       LEFT JOIN milestones m ON m.project_id = p.id
+       LEFT JOIN submissions s ON s.contractor_id = cp.id
+       GROUP BY cp.id, cp.company_name`
+    );
+
+    const risk = result.rows.map((r: any) => {
+      const total = Number(r.total_submissions) || 0;
+      const rejectedRate = total > 0 ? Number(r.rejected_submissions) / total : 0;
+      const stale = Number(r.total_projects) > 0 && (!r.last_submission_at ||
+        Date.now() - new Date(r.last_submission_at).getTime() > 60 * 86400_000);
+
+      // weighted score 0-100
+      const score = Math.min(100, Math.round(
+        Number(r.stalled_projects) * 20 +
+        rejectedRate * 40 +
+        Number(r.overdue_milestones) * 10 +
+        (stale ? 20 : 0)
+      ));
+      return {
+        contractorId: r.contractor_id,
+        companyName: r.company_name,
+        score,
+        level: score >= 50 ? 'HIGH' : score >= 25 ? 'MEDIUM' : 'LOW',
+        signals: {
+          stalledProjects: Number(r.stalled_projects),
+          overdueMilestones: Number(r.overdue_milestones),
+          rejectionRate: Math.round(rejectedRate * 100),
+          staleNoSubmission: stale,
+          totalProjects: Number(r.total_projects),
+        },
+      };
+    }).sort((a: any, b: any) => b.score - a.score);
+
+    return res.json({ success: true, data: { risk } });
+  } catch (error: any) {
+    console.error('Contractor risk error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to compute contractor risk' });
+  }
+});
+
+/**
  * GET /api/contractors/:id
  * Get contractor by ID
  */

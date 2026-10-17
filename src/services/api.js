@@ -373,6 +373,9 @@ export const projectAPI = {
 // ============================================================================
 
 export const contractorAPI = {
+  getRisk: () =>
+    apiFetch('/contractors/risk'),
+
   getAll: (filters = {}) => {
     const params = new URLSearchParams(filters);
     return apiFetch(`/contractors?${params}`);

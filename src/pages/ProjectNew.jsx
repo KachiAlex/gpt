@@ -46,6 +46,8 @@ export default function ProjectNew() {
  description: '',
  category: '',
  lga: [], // Changed to array for multi-select
+ latitude: '',
+ longitude: '',
  priority: 'Medium',
  budget: '',
  fundingSource: '',
@@ -188,6 +190,9 @@ export default function ProjectNew() {
  expectedEndDate: formData.expectedEndDate,
  beneficiaries: formData.beneficiaries || undefined,
  contractorId: formData.contractorId || undefined,
+ ...(formData.latitude !== '' && formData.longitude !== ''
+   ? { location: { lat: parseFloat(formData.latitude), lng: parseFloat(formData.longitude) } }
+   : {}),
  };
 
  console.log('Submitting project:', submissionData);
@@ -383,6 +388,28 @@ export default function ProjectNew() {
  ))}
  </div>
  )}
+ </div>
+
+ <div className="md:col-span-2">
+ <label className="block text-sm font-medium text-ink mb-2">
+ Coordinates <span className="text-muted font-normal">(optional — places the project on the map)</span>
+ </label>
+ <div className="grid grid-cols-2 gap-3">
+ <input
+ type="number" step="any" min="-90" max="90"
+ value={formData.latitude}
+ onChange={(e) => handleInputChange('latitude', e.target.value)}
+ placeholder="Latitude e.g. 9.0820"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+ />
+ <input
+ type="number" step="any" min="-180" max="180"
+ value={formData.longitude}
+ onChange={(e) => handleInputChange('longitude', e.target.value)}
+ placeholder="Longitude e.g. 8.6753"
+ className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+ />
+ </div>
  </div>
 
  <div>

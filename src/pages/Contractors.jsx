@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
  Plus, 
  Search, 
@@ -20,6 +20,13 @@ import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { useContractors } from '../contexts/ContractorsContext';
 import ContractorDetailModal from '../components/Contractors/ContractorDetailModal';
+import { contractorAPI } from '../services/api';
+
+const RISK_STYLES = {
+ LOW: 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300',
+ MEDIUM: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+ HIGH: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+};
 
 
 const specializationOptions = ['All Specializations', 'Road Construction', 'Healthcare Infrastructure', 'Water Infrastructure', 'Marine Infrastructure'];
@@ -38,6 +45,17 @@ export default function Contractors() {
  const [showFilters, setShowFilters] = useState(false);
  const [selectedContractor, setSelectedContractor] = useState(null);
  const [showDetailModal, setShowDetailModal] = useState(false);
+ const [riskById, setRiskById] = useState({});
+
+ useEffect(() => {
+   contractorAPI.getRisk()
+     .then((res) => {
+       const map = {};
+       (res?.data?.risk || []).forEach((r) => { map[r.contractorId] = r; });
+       setRiskById(map);
+     })
+     .catch(() => {});
+ }, []);
 
  // Debug logging
  console.log('Contractors page - contractors from context:', contractors);
@@ -245,9 +263,19 @@ export default function Contractors() {
  </div>
  </td>
  <td className="py-5 px-4">
+ <div className="flex flex-col gap-1.5 items-start">
  <span className={clsx('status-badge', statusStyles[contractor.status])}>
  {contractor.status}
  </span>
+ {riskById[contractor.id] && (
+ <span
+   className={clsx('text-xs font-semibold px-2 py-0.5 rounded-full', RISK_STYLES[riskById[contractor.id].level])}
+   title={`Risk score ${riskById[contractor.id].score}/100 — stalled: ${riskById[contractor.id].signals.stalledProjects}, overdue milestones: ${riskById[contractor.id].signals.overdueMilestones}, rejections: ${riskById[contractor.id].signals.rejectionRate}%`}
+ >
+   {riskById[contractor.id].level === 'HIGH' ? '⚠ ' : ''}Risk: {riskById[contractor.id].level.toLowerCase()}
+ </span>
+ )}
+ </div>
  </td>
  <td className="py-5 px-4">
  <div className="text-base">
