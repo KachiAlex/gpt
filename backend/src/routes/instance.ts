@@ -3,6 +3,7 @@ import { query, rowToCamelCase, getClient } from '../config/database';
 import { authenticate, requireRoles } from '../middleware/auth';
 import { getStages } from '../services/workflowService';
 import { audit, auditFromReq } from '../services/auditService';
+import { getFeatures } from '../services/featureFlags';
 
 const router = Router();
 
@@ -16,6 +17,7 @@ interface InstanceConfig {
   areaLabelPlural: string;
   contactEmail: string | null;
   footerOrg: string;
+  features: Record<string, boolean>;
 }
 
 // env vars provide the baseline; the DB row overrides them when set
@@ -29,6 +31,7 @@ const envDefaults = (): InstanceConfig => ({
   areaLabelPlural: process.env.INSTANCE_AREA_LABEL_PLURAL || 'LGAs',
   contactEmail: process.env.INSTANCE_CONTACT_EMAIL || null,
   footerOrg: process.env.INSTANCE_FOOTER_ORG || 'Kreatix Technologies',
+  features: getFeatures(),
 });
 
 const getConfig = async (): Promise<InstanceConfig> => {
@@ -48,6 +51,7 @@ const getConfig = async (): Promise<InstanceConfig> => {
       areaLabelPlural: row.areaLabelPlural || defaults.areaLabelPlural,
       contactEmail: row.contactEmail ?? defaults.contactEmail,
       footerOrg: row.footerOrg || defaults.footerOrg,
+      features: defaults.features,
     };
   } catch {
     // Table may not exist yet on a pre-migration database

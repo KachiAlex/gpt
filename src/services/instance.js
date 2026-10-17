@@ -15,6 +15,8 @@ const DEFAULTS = {
   areaLabelPlural: 'LGAs',
   contactEmail: null,
   footerOrg: 'Kreatix Technologies',
+  // Provider-licensed modules (INSTANCE_FEATURES env on the backend).
+  features: { publicPortal: true, map: true, analytics: true, reports: true, progress: true },
 };
 
 let config = { ...DEFAULTS };
@@ -47,7 +49,7 @@ export const loadInstance = () => {
         const overrides = Object.fromEntries(
           Object.entries(res.data.instance).filter(([, v]) => v != null && v !== '')
         );
-        config = { ...DEFAULTS, ...overrides };
+        config = { ...DEFAULTS, ...overrides, features: { ...DEFAULTS.features, ...(overrides.features || {}) } };
         applyBrand(config);
         if (config.name) document.title = config.name;
       }

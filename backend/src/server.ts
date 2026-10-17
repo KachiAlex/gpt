@@ -114,6 +114,7 @@ import userRoutes from './routes/users';
 import reportRoutes from './routes/reports';
 import instanceRoutes from './routes/instance';
 import auditRoutes from './routes/audit';
+import { requireFeature } from './services/featureFlags';
 import seedRoutes from './routes/seed';
 
 // API routes
@@ -122,10 +123,10 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/contractors', contractorRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/public', publicRoutes);
+app.use('/api/public', requireFeature('publicPortal'), publicRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/reports', reportRoutes);
+app.use('/api/reports', requireFeature('reports'), reportRoutes);
 app.use('/api/instance', instanceRoutes);
 app.use('/api/audit-log', auditRoutes);
 // Seed endpoint: disabled in production unless explicitly re-enabled

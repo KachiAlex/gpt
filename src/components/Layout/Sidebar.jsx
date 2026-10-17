@@ -27,7 +27,7 @@ const navFor = (role) => {
   if (role === 'CONTRACTOR') {
     return [
       { name: 'Dashboard', href: '/contractor/dashboard', icon: LayoutDashboard },
-      { name: 'Map view', href: '/map', icon: MapIcon },
+      { name: 'Map view', href: '/map', icon: MapIcon, feature: 'map' },
       { name: 'Settings', href: '/settings', icon: Settings },
     ];
   }
@@ -35,9 +35,9 @@ const navFor = (role) => {
     return [
       { name: 'Review queue', href: '/me/dashboard', icon: ClipboardCheck },
       { name: 'Projects', href: '/projects', icon: Folder },
-      { name: 'Reports', href: '/reports', icon: FileText },
-      { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-      { name: 'Map view', href: '/map', icon: MapIcon },
+      { name: 'Reports', href: '/reports', icon: FileText, feature: 'reports' },
+      { name: 'Analytics', href: '/analytics', icon: BarChart3, feature: 'analytics' },
+      { name: 'Map view', href: '/map', icon: MapIcon, feature: 'map' },
       { name: 'Settings', href: '/settings', icon: Settings },
     ];
   }
@@ -45,10 +45,10 @@ const navFor = (role) => {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Projects', href: '/projects', icon: Folder },
     { name: 'Contractors', href: '/contractors', icon: HardHat },
-    { name: 'M&E Reports', href: '/reports', icon: ClipboardCheck },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Map view', href: '/map', icon: MapIcon },
-    { name: 'Progress', href: '/progress', icon: FileText },
+    { name: 'M&E Reports', href: '/reports', icon: ClipboardCheck, feature: 'reports' },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3, feature: 'analytics' },
+    { name: 'Map view', href: '/map', icon: MapIcon, feature: 'map' },
+    { name: 'Progress', href: '/progress', icon: FileText, feature: 'progress' },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 };
@@ -61,7 +61,7 @@ export default function Sidebar() {
 
   const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() || 'U';
   const displayName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User';
-  const items = navFor(user?.role);
+  const items = navFor(user?.role).filter((i) => !i.feature || instance.features?.[i.feature] !== false);
   const isActive = (href) => location.pathname === href || (href !== '/dashboard' && location.pathname.startsWith(href + '/'));
 
   return (

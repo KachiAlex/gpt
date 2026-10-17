@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
@@ -7,7 +7,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ContractorsProvider } from './contexts/ContractorsContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
-import { InstanceProvider } from './contexts/InstanceContext';
+import { InstanceProvider, useInstance } from './contexts/InstanceContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -28,6 +28,14 @@ import Settings from './pages/Settings';
 import ProgressMeasurement from './pages/ProgressMeasurement';
 import PublicPortal from './pages/PublicPortal';
 import './App.css';
+
+// Renders children only when the deployment has the feature licensed
+// (INSTANCE_FEATURES on the backend). Otherwise bounces to `to`.
+function FeatureRoute({ feature, to = '/', children }) {
+  const { features } = useInstance();
+  if (features?.[feature] === false) return <Navigate to={to} replace />;
+  return children;
+}
 
 function ThemeSync() {
   const { user } = useAuth();
@@ -51,8 +59,8 @@ function AppContent() {
   if (isStandaloneRoute) {
     return (
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/public" element={<PublicPortal />} />
+        <Route path="/" element={<FeatureRoute feature="publicPortal" to="/login"><Home /></FeatureRoute>} />
+        <Route path="/public" element={<FeatureRoute feature="publicPortal"><PublicPortal /></FeatureRoute>} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
@@ -117,17 +125,17 @@ function AppContent() {
             } />
             <Route path="/reports" element={
               <ProtectedRoute roles={['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER']}>
-                <Reports />
+                <FeatureRoute feature="reports"><Reports /></FeatureRoute>
               </ProtectedRoute>
             } />
             <Route path="/analytics" element={
               <ProtectedRoute roles={['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER']}>
-                <Analytics />
+                <FeatureRoute feature="analytics"><Analytics /></FeatureRoute>
               </ProtectedRoute>
             } />
             <Route path="/map" element={
               <ProtectedRoute>
-                <MapView />
+                <FeatureRoute feature="map"><MapView /></FeatureRoute>
               </ProtectedRoute>
             } />
             <Route path="/settings" element={
@@ -137,7 +145,7 @@ function AppContent() {
             } />
             <Route path="/progress" element={
               <ProtectedRoute roles={['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER']}>
-                <ProgressMeasurement />
+                <FeatureRoute feature="progress"><ProgressMeasurement /></FeatureRoute>
               </ProtectedRoute>
             } />
           </Routes>
