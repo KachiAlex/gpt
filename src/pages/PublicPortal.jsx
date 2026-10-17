@@ -7,6 +7,7 @@ import StatusPill from '../components/ui/StatusPill';
 import ProgressBar from '../components/ui/ProgressBar';
 import { categoryLabel, fmtNaira, fmtNairaCompact, fmtDate, areaLabel, areasLabel } from '../utils/statusMap';
 import { useInstance } from '../contexts/InstanceContext';
+import ProjectMap, { getCoords } from '../components/ui/ProjectMap';
 
 const CATEGORIES = ['All', 'Transportation', 'Healthcare', 'Water & Sanitation', 'Education', 'Housing'];
 const SORTS = [
@@ -77,6 +78,26 @@ export default function PublicPortal() {
     if (sort === 'progress') list.sort((a, b) => Number(a.progress || 0) - Number(b.progress || 0));
     return list;
   }, [projects, sort]);
+
+  const mapItems = useMemo(
+    () => sorted
+      .map((p) => ({ ...p, coords: getCoords(p.location) }))
+      .filter((p) => p.coords)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        coords: p.coords,
+        project: p,
+        color: p.status === 'COMPLETED' ? '#10b981' : p.status === 'DELAYED' || p.status === 'ON_HOLD' ? '#ef4444' : '#0284c7',
+        popup: (
+          <div className="text-sm">
+            <div className="font-semibold">{p.name}</div>
+            <div>{p.lga}</div>
+          </div>
+        ),
+      })),
+    [sorted]
+  );
 
   const statTiles = [
     { label: 'Projects', value: stats ? String(stats.totalProjects) : '—' },
@@ -177,6 +198,21 @@ export default function PublicPortal() {
             </div>
           ))}
         </div>
+
+        {/* Map of published projects with coordinates */}
+        {mapItems.length > 0 && (
+          <section className="mt-6 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="px-5 pt-4 pb-3 flex items-center justify-between">
+              <h2 className="m-0 font-bold text-lg">Project locations</h2>
+              <span className="text-sm text-slate-500">{mapItems.length} pinned</span>
+            </div>
+            <ProjectMap
+              items={mapItems}
+              height={380}
+              onSelect={(item) => setSelected(item.project)}
+            />
+          </section>
+        )}
 
         {/* Count + sort */}
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
