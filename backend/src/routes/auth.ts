@@ -239,10 +239,15 @@ router.post('/mfa/setup', authenticate, async (req: Request, res: Response) => {
  */
 router.post('/mfa/enable', authenticate, async (req: Request, res: Response) => {
   try {
-    const { code } = req.body;
+    const { code, password } = req.body;
     const user = await userRepository.findById(req.user!.userId);
     if (!user || !user.totpSecret) {
       return res.status(400).json({ success: false, message: 'Run mfa setup first' });
+    }
+    // Password required — a stolen session alone must not be able to bind an
+    // attacker-held TOTP secret (that would lock the real user out).
+    if (!password || !(await verifyPassword(password, user.password))) {
+      return res.status(401).json({ success: false, message: 'Password is required to enable two-factor authentication' });
     }
     if (!code || !authenticator.check(String(code), user.totpSecret)) {
       return res.status(401).json({ success: false, message: 'Invalid authentication code' });
@@ -579,11 +584,14 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
     }
 
+    // Atomically consume the token — a single UPDATE ... RETURNING means a
+    // token can only ever be redeemed once, even under concurrent requests.
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const result = await query(
-      `SELECT pr.id, pr.user_id
-       FROM password_resets pr
-       WHERE pr.token_hash = $1 AND pr.used_at IS NULL AND pr.expires_at > NOW()`,
+      `UPDATE password_resets
+       SET used_at = NOW()
+       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+       RETURNING id, user_id`,
       [tokenHash]
     );
 
@@ -593,7 +601,6 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
     const reset = result.rows[0];
     await userRepository.updatePassword(reset.user_id, await hashPassword(newPassword));
-    await query('UPDATE password_resets SET used_at = NOW() WHERE id = $1', [reset.id]);
     await audit({ actorId: reset.user_id, action: 'auth.password_reset', entityType: 'user', entityId: reset.user_id, ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress });
 
     return res.json({ success: true, message: 'Password has been reset. You can now log in.' });

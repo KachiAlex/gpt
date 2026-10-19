@@ -101,7 +101,7 @@ const buildReportData = async (options: {
  * GET /api/reports
  * List generated reports
  */
-router.get('/', authenticate, async (req: Request, res: Response) => {
+router.get('/', authenticate, generateRoles, async (req: Request, res: Response) => {
   try {
     const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '50', 10), 1), 100);
@@ -188,7 +188,7 @@ router.post('/generate', authenticate, generateRoles, async (req: Request, res: 
  * GET /api/reports/:id
  * Get a single report (including its data snapshot)
  */
-router.get('/:id', authenticate, async (req: Request, res: Response) => {
+router.get('/:id', authenticate, generateRoles, async (req: Request, res: Response) => {
   try {
     const report = await reportRepository.findById(req.params.id);
     if (!report) {
@@ -206,7 +206,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
  * Download the report data as a JSON file. Accepts ?token= for
  * browser-driven downloads.
  */
-router.get('/:id/download', authenticate, async (req: Request, res: Response) => {
+router.get('/:id/download', authenticate, generateRoles, async (req: Request, res: Response) => {
   try {
     const report = await reportRepository.findById(req.params.id);
     if (!report) {

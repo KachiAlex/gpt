@@ -19,6 +19,8 @@ const mapContractor = (row: any): DbContractorProfile => {
   return {
     ...contractor,
     specialization: contractor.specialization || [],
+    // NUMERIC comes back as a string — normalize for the API
+    rating: contractor.rating !== null && contractor.rating !== undefined ? Number(contractor.rating) : null,
     yearsExperience: contractor.yearsExperience ?? null,
     createdAt: new Date(contractor.createdAt),
     updatedAt: new Date(contractor.updatedAt),

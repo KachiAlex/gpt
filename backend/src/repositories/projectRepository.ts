@@ -27,11 +27,23 @@ const submissionColumns = `
   id, project_id, contractor_id, title, status, submitted_at
 `;
 
+// Postgres NUMERIC columns come back as strings ("1000000.00") — normalize
+// every money/progress column so the API always returns real numbers.
+const num = (v: any) => (v === null || v === undefined ? v : Number(v));
+
 const mapProject = (row: any): DbProject => {
   const project = rowToCamelCase(row);
   return {
     ...project,
     lga: Array.isArray(project.lga) ? project.lga : [],
+    budget: num(project.budget),
+    allocatedBudget: num(project.allocatedBudget),
+    spentBudget: num(project.spentBudget),
+    progress: num(project.progress),
+    beneficiaries: num(project.beneficiaries),
+    qualityScore: num(project.qualityScore),
+    safetyCompliance: num(project.safetyCompliance),
+    weatherDelay: num(project.weatherDelay),
     startDate: project.startDate ? new Date(project.startDate) : null,
     expectedEndDate: project.expectedEndDate ? new Date(project.expectedEndDate) : null,
     actualEndDate: project.actualEndDate ? new Date(project.actualEndDate) : null,
@@ -44,6 +56,8 @@ const mapMilestone = (row: any): DbMilestone => {
   const milestone = rowToCamelCase(row);
   return {
     ...milestone,
+    progress: num(milestone.progress),
+    budget: num(milestone.budget),
     dueDate: milestone.dueDate ? new Date(milestone.dueDate) : null,
     completedDate: milestone.completedDate ? new Date(milestone.completedDate) : null,
     createdAt: new Date(milestone.createdAt),

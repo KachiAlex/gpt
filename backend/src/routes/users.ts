@@ -7,6 +7,9 @@ import { notificationRepository } from '../repositories/notificationRepository';
 import { documentRepository } from '../repositories/documentRepository';
 import { fileUploadService } from '../services/fileUploadService';
 import { DocumentCategory } from '../types/domain';
+import { query } from '../config/database';
+import { hashPassword } from '../utils/password';
+import { audit, auditFromReq } from '../services/auditService';
 
 const router = Router();
 
@@ -41,6 +44,96 @@ router.get('/', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Requ
   } catch (error: any) {
     console.error('Get users error:', error);
     return res.status(500).json({ success: false, message: 'Failed to get users' });
+  }
+});
+
+/**
+ * PATCH /api/users/:id
+ * Admin: activate/deactivate a user or change their role.
+ * Deactivation takes effect immediately — authenticate re-checks
+ * is_active on every request, so outstanding tokens stop working.
+ */
+router.patch('/:id', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { isActive, role } = req.body ?? {};
+
+    const target = await userRepository.findById(id);
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (id === req.user!.userId) {
+      return res.status(400).json({ success: false, message: 'You cannot modify your own account here' });
+    }
+
+    const VALID_ROLES = new Set(['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER', 'CONTRACTOR', 'PUBLIC']);
+    const updates: { isActive?: boolean; role?: string } = {};
+    if (isActive !== undefined) {
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ success: false, message: 'isActive must be a boolean' });
+      }
+      updates.isActive = isActive;
+    }
+    if (role !== undefined) {
+      if (!VALID_ROLES.has(role)) {
+        return res.status(400).json({ success: false, message: 'Invalid role' });
+      }
+      updates.role = role;
+    }
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: 'Nothing to update — send isActive and/or role' });
+    }
+
+    const sets: string[] = [];
+    const vals: any[] = [];
+    if (updates.isActive !== undefined) { sets.push(`is_active = $${vals.length + 1}`); vals.push(updates.isActive); }
+    if (updates.role !== undefined) { sets.push(`role = $${vals.length + 1}`); vals.push(updates.role); }
+    vals.push(id);
+    const result = await query(
+      `UPDATE users SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length}
+       RETURNING id, email, role, is_active`,
+      vals
+    );
+
+    const updated = result.rows[0];
+    await audit(auditFromReq(req, 'user.update', 'user', id, {
+      targetEmail: target.email,
+      ...(updates.isActive !== undefined ? { isActive: updates.isActive } : {}),
+      ...(updates.role !== undefined ? { role: updates.role } : {}),
+    }));
+
+    return res.json({ success: true, message: 'User updated', data: { user: updated } });
+  } catch (error: any) {
+    console.error('Update user error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update user' });
+  }
+});
+
+/**
+ * POST /api/users/:id/reset-password
+ * Admin: force a password reset — sets a new password and marks the
+ * account for a change on next login is left to the admin to enforce.
+ */
+router.post('/:id/reset-password', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body ?? {};
+
+    const target = await userRepository.findById(id);
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'newPassword must be at least 8 characters' });
+    }
+
+    await userRepository.updatePassword(id, await hashPassword(newPassword));
+    await audit(auditFromReq(req, 'user.password_reset_admin', 'user', id, { targetEmail: target.email }));
+
+    return res.json({ success: true, message: `Password reset for ${target.email}` });
+  } catch (error: any) {
+    console.error('Admin reset password error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to reset password' });
   }
 });
 

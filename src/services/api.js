@@ -280,10 +280,10 @@ export const authAPI = {
   mfaSetup: () =>
     apiFetch('/auth/mfa/setup', { method: 'POST' }),
 
-  mfaEnable: (code) =>
+  mfaEnable: (code, password) =>
     apiFetch('/auth/mfa/enable', {
       method: 'POST',
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, password }),
     }),
 
   mfaDisable: (password, code) =>
@@ -530,6 +530,18 @@ export const reportAPI = {
 export const userAPI = {
   getAll: () => 
     apiFetch('/users'),
+
+  update: (id, updates) =>
+    apiFetch(`/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    }),
+
+  resetPassword: (id, newPassword) =>
+    apiFetch(`/users/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ newPassword }),
+    }),
 
   uploadProfileImage: (formData) => 
     uploadFile('/users/upload-profile-image', formData),

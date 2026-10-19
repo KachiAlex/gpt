@@ -7,7 +7,7 @@ import {
   ListProjectsParams,
   UpdateProjectInput,
 } from '../types/models';
-import { ProjectCategory, ProjectStatus, Priority } from '../types/domain';
+import { ProjectCategory, ProjectStatus, Priority, MilestoneStatus } from '../types/domain';
 import { query, rowToCamelCase } from '../config/database';
 import { audit, auditFromReq } from '../services/auditService';
 
@@ -442,7 +442,12 @@ router.put('/:id/milestones/:milestoneId', verifyToken, async (req: Request, res
       } else if (key === 'progress' || key === 'budget' || key === 'orderIndex') {
         const n = Number(value);
         updates[key] = Number.isNaN(n) ? undefined : n;
-      } else if (['name', 'description', 'status'].includes(key)) {
+      } else if (key === 'status') {
+        if (!(Object.values(MilestoneStatus) as string[]).includes(value as string)) {
+          return res.status(400).json({ success: false, message: `Invalid status — must be one of: ${Object.values(MilestoneStatus).join(', ')}` });
+        }
+        updates[key] = value;
+      } else if (['name', 'description'].includes(key)) {
         updates[key] = value;
       }
     }

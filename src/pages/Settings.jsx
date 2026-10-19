@@ -26,7 +26,8 @@ import {
  GitBranch,
  Plus,
  Trash2,
- ScrollText
+ ScrollText,
+ Users
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../contexts/AuthContext';
@@ -43,6 +44,8 @@ export default function Settings() {
  const [wfStages, setWfStages] = useState([]);
  const [wfSaving, setWfSaving] = useState(false);
  const [auditEntries, setAuditEntries] = useState([]);
+ const [managedUsers, setManagedUsers] = useState([]);
+ const [usersLoading, setUsersLoading] = useState(false);
  const [auditLoading, setAuditLoading] = useState(false);
  const [configRequests, setConfigRequests] = useState([]);
  const fileInputRef = useRef(null);
@@ -58,6 +61,7 @@ export default function Settings() {
  // Two-factor auth (TOTP)
  const [mfaSetup, setMfaSetup] = useState(null); // { secret, qrDataUrl }
  const [mfaCode, setMfaCode] = useState('');
+ const [mfaPassword, setMfaPassword] = useState('');
  const [mfaBusy, setMfaBusy] = useState(false);
  const [mfaDisable, setMfaDisable] = useState({ open: false, password: '', code: '' });
  
@@ -132,6 +136,41 @@ export default function Settings() {
      .finally(() => setAuditLoading(false));
  }, [activeTab, isAdmin]);
 
+ useEffect(() => {
+   if (activeTab !== 'users' || !isAdmin) return;
+   setUsersLoading(true);
+   userAPI.getAll()
+     .then((res) => setManagedUsers(res?.data?.users || []))
+     .catch(() => showError('Failed to load users'))
+     .finally(() => setUsersLoading(false));
+ }, [activeTab, isAdmin]);
+
+ const handleUserPatch = async (target, updates) => {
+   try {
+     const res = await userAPI.update(target.id, updates);
+     if (res?.success) {
+       setManagedUsers((prev) => prev.map((u) => u.id === target.id ? { ...u, ...updates, isActive: updates.isActive ?? u.isActive, role: updates.role ?? u.role } : u));
+       showSuccess('User updated');
+     } else {
+       showError(res?.message || 'Update failed');
+     }
+   } catch (e) {
+     showError(e.message || 'Update failed');
+   }
+ };
+
+ const handleUserReset = async (target) => {
+   const newPassword = window.prompt(`Set a new password for ${target.email} (min 8 characters):`);
+   if (newPassword === null) return;
+   try {
+     const res = await userAPI.resetPassword(target.id, newPassword);
+     if (res?.success) showSuccess(res.message || 'Password reset');
+     else showError(res?.message || 'Reset failed');
+   } catch (e) {
+     showError(e.message || 'Reset failed');
+   }
+ };
+
  const REVIEW_ROLES = [
    ['ME_OFFICER', 'M&E Officer'],
    ['GOVERNMENT_OFFICER', 'Government Officer'],
@@ -196,6 +235,7 @@ export default function Settings() {
  { id: 'appearance', name: 'Appearance', icon: Palette },
  ...(isAdmin ? [
    { id: 'workflow', name: 'Workflow', icon: GitBranch },
+   { id: 'users', name: 'Users', icon: Users },
    { id: 'audit', name: 'Audit Log', icon: ScrollText },
  ] : []),
  { id: 'system', name: 'System', icon: Database }
@@ -894,17 +934,30 @@ export default function Settings() {
  className="w-40 border border-border rounded-lg px-3 py-2 text-center tracking-[0.3em] focus:ring-2 focus:ring-primary-500"
  placeholder="123456"
  />
+ </div>
+ </div>
+ <div>
+ <p className="text-sm text-muted mb-2">3. Confirm with your account password:</p>
+ <div className="flex gap-3 items-center">
+ <input
+ type="password"
+ value={mfaPassword}
+ onChange={(e) => setMfaPassword(e.target.value)}
+ className="w-48 border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500"
+ placeholder="Password"
+ autoComplete="current-password"
+ />
  <button
  type="button"
- disabled={mfaBusy || mfaCode.length !== 6}
+ disabled={mfaBusy || mfaCode.length !== 6 || !mfaPassword}
  onClick={async () => {
  setMfaBusy(true);
  try {
- const res = await authAPI.mfaEnable(mfaCode);
+ const res = await authAPI.mfaEnable(mfaCode, mfaPassword);
  if (res.success) {
  showSuccess('Two-factor authentication enabled');
  updateUser({ ...user, totpEnabled: true });
- setMfaSetup(null); setMfaCode('');
+ setMfaSetup(null); setMfaCode(''); setMfaPassword('');
  } else showError(res.message || 'Invalid code');
  } catch (e) { showError(e.message || 'Verification failed'); }
  finally { setMfaBusy(false); }
@@ -913,7 +966,7 @@ export default function Settings() {
  >
  Enable
  </button>
- <button type="button" onClick={() => { setMfaSetup(null); setMfaCode(''); }} className="text-sm text-soft-fg font-semibold">
+ <button type="button" onClick={() => { setMfaSetup(null); setMfaCode(''); setMfaPassword(''); }} className="text-sm text-soft-fg font-semibold">
  Cancel
  </button>
  </div>
@@ -1170,6 +1223,82 @@ export default function Settings() {
          </div>
        ))}
      </div>
+   </div>
+ )}
+ </div>
+ )}
+
+ {/* User management (admin) */}
+ {activeTab === 'users' && isAdmin && (
+ <div className="card">
+ <h3 className="text-lg font-semibold text-ink mb-2">User management</h3>
+ <p className="text-sm text-muted mb-6">Deactivate accounts, change roles, or reset passwords. Deactivation takes effect immediately.</p>
+ {usersLoading ? (
+   <p className="text-muted text-sm py-6 text-center">Loading…</p>
+ ) : managedUsers.length === 0 ? (
+   <p className="text-muted text-sm py-6 text-center">No users found.</p>
+ ) : (
+   <div className="overflow-x-auto -mx-2">
+     <table className="w-full text-sm">
+       <thead>
+         <tr className="text-left text-muted border-b border-border">
+           <th className="px-2 py-2 font-medium">User</th>
+           <th className="px-2 py-2 font-medium">Role</th>
+           <th className="px-2 py-2 font-medium">Status</th>
+           <th className="px-2 py-2 font-medium text-right">Actions</th>
+         </tr>
+       </thead>
+       <tbody>
+         {managedUsers.map((u) => {
+           const isSelf = u.id === user?.id;
+           return (
+             <tr key={u.id} className="border-b border-border last:border-0">
+               <td className="px-2 py-3">
+                 <div className="font-medium text-ink">{[u.firstName, u.lastName].filter(Boolean).join(' ') || u.email}</div>
+                 <div className="text-xs text-muted">{u.email}</div>
+               </td>
+               <td className="px-2 py-3">
+                 <select
+                   value={u.role}
+                   disabled={isSelf}
+                   onChange={(e) => handleUserPatch(u, { role: e.target.value })}
+                   className="border border-border rounded-lg px-2 py-1 text-sm bg-bg disabled:opacity-50"
+                 >
+                   <option value="GOVERNMENT_ADMIN">Administrator</option>
+                   <option value="GOVERNMENT_OFFICER">Govt Officer</option>
+                   <option value="ME_OFFICER">M&amp;E Officer</option>
+                   <option value="CONTRACTOR">Contractor</option>
+                   <option value="PUBLIC">Public</option>
+                 </select>
+               </td>
+               <td className="px-2 py-3">
+                 <span className={clsx('px-2 py-0.5 rounded-full text-xs font-medium', u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}>
+                   {u.isActive ? 'Active' : 'Disabled'}
+                 </span>
+               </td>
+               <td className="px-2 py-3 text-right space-x-3">
+                 {!isSelf && (
+                   <button
+                     type="button"
+                     onClick={() => handleUserPatch(u, { isActive: !u.isActive })}
+                     className={clsx('text-xs font-semibold', u.isActive ? 'text-red-600' : 'text-green-600')}
+                   >
+                     {u.isActive ? 'Deactivate' : 'Activate'}
+                   </button>
+                 )}
+                 <button
+                   type="button"
+                   onClick={() => handleUserReset(u)}
+                   className="text-xs font-semibold text-soft-fg"
+                 >
+                   Reset password
+                 </button>
+               </td>
+             </tr>
+           );
+         })}
+       </tbody>
+     </table>
    </div>
  )}
  </div>

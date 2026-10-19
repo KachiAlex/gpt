@@ -158,7 +158,7 @@ export default function MEDashboard() {
         <EmptyState
           icon={Inbox}
           title="Queue is clear"
-          body="There are no contractor submissions yet. When contractors report progress on their milestones, the submissions will appear here for review."
+          message="There are no contractor submissions yet. When contractors report progress on their milestones, the submissions will appear here for review."
         />
       ) : (
         <div className="flex flex-wrap gap-6 items-start">
@@ -194,7 +194,7 @@ export default function MEDashboard() {
           {/* Review panel */}
           <section aria-label="Review submission" className="flex-[3_1_460px] min-w-0 bg-surface border border-border rounded-2xl px-7 py-[26px] flex flex-col gap-5">
             {!selected ? (
-              <EmptyState icon={ClipboardCheck} title="Select a submission" body="Pick a submission from the queue to review it." />
+              <EmptyState icon={ClipboardCheck} title="Select a submission" message="Pick a submission from the queue to review it." />
             ) : (
               <>
                 <div>

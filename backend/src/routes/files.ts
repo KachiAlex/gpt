@@ -100,6 +100,12 @@ const canAccessSubmissionDocs = async (user: AuthUser, submissionId: string): Pr
   return r.rows.length > 0;
 };
 
+// Keep submissions.media_count in step with the documents table.
+const incrementMediaCount = (submissionId: string | null) =>
+  submissionId
+    ? query('UPDATE submissions SET media_count = media_count + 1 WHERE id = $1', [submissionId])
+    : Promise.resolve();
+
 /**
  * POST /api/files/upload
  * Upload a single file
@@ -170,6 +176,7 @@ router.post('/upload', verifyToken, upload.single('file'), async (req: Request, 
     };
 
     const document = await documentRepository.create(documentData);
+    await incrementMediaCount(normalizedSubmissionId);
 
     return res.json({
       success: true,
@@ -265,6 +272,7 @@ router.post('/upload-multiple', verifyToken, upload.array('files', 10), async (r
         };
 
         const document = await documentRepository.create(documentData);
+        await incrementMediaCount(normalizedSubmissionId);
 
         uploadResults.push(withDownloadUrl(document));
 
