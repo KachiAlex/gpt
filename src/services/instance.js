@@ -3,7 +3,15 @@
 // React components (via InstanceContext) and plain helpers (statusMap)
 // can read it without prop threading.
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Resolve the API base the same way api.js does — VITE_API_URL, then the
+// deployed VPS origin in production, then localhost for development.
+const API_BASE = (() => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://gpt-api.67-211-210-8.sslip.io/api';
+  }
+  return 'http://localhost:5000/api';
+})();
 
 const DEFAULTS = {
   name: 'Government Project Tracker',
@@ -69,7 +77,11 @@ export const loadInstance = () => {
       }
       return config;
     })
-    .catch(() => config);
+    .catch(() => {
+      // Transient boot failure must not lock defaults for the whole session
+      loadPromise = null;
+      return config;
+    });
   return loadPromise;
 };
 
@@ -111,6 +123,9 @@ export const loadStages = (force = false) => {
       }
       return stages;
     })
-    .catch(() => stages);
+    .catch(() => {
+      stagesPromise = null;
+      return stages;
+    });
   return stagesPromise;
 };

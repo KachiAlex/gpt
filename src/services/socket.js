@@ -18,18 +18,29 @@ const getSocketUrl = () => {
 
 const SOCKET_URL = getSocketUrl();
 
+const getToken = () => {
+  try {
+    const authData = localStorage.getItem('gpt_auth');
+    return authData ? JSON.parse(authData).token : null;
+  } catch {
+    return null;
+  }
+};
+
 export const socket = SOCKET_URL ? io(SOCKET_URL, {
   autoConnect: false,
+  // The server verifies this JWT and derives rooms from it — clients can
+  // no longer subscribe to arbitrary users/projects.
+  auth: (cb) => cb({ token: getToken() }),
 }) : null;
 
-export const connectSocket = (userId) => {
+export const connectSocket = () => {
   if (!socket) {
     console.warn('Socket.IO is not available. Real-time features disabled.');
     return;
   }
   try {
     socket.connect();
-    if (userId) socket.emit('join-user-room', userId);
   } catch (error) {
     console.error('Error connecting socket:', error);
   }
@@ -45,4 +56,3 @@ export const disconnectSocket = () => {
 };
 
 export default socket;
-

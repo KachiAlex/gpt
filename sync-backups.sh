@@ -21,14 +21,15 @@ SYNCED=0; SKIPPED=0; FAILED=0
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
-sync_one() {
+sync_one() (
   dir="$1"; slug=$(basename "$dir")
+  # Subshell: sourced .env vars can't leak into the next instance's sync.
   set -a; . "$dir/.env"; set +a
 
-  [ -z "${BACKUP_S3_BUCKET:-}" ] && { echo "  $slug: no BACKUP_S3_BUCKET — skipped"; SKIPPED=$((SKIPPED+1)); return; }
+  [ -z "${BACKUP_S3_BUCKET:-}" ] && { echo "  $slug: no BACKUP_S3_BUCKET — skipped"; return 2; }
   [ -z "${BACKUP_S3_ACCESS_KEY:-}" ] || [ -z "${BACKUP_S3_SECRET_KEY:-}" ] \
-    && { echo "  $slug: incomplete BACKUP_S3_* keys — skipped"; SKIPPED=$((SKIPPED+1)); return; }
-  [ -d "$dir/backups" ] || { echo "  $slug: no backups dir — skipped"; SKIPPED=$((SKIPPED+1)); return; }
+    && { echo "  $slug: incomplete BACKUP_S3_* keys — skipped"; return 2; }
+  [ -d "$dir/backups" ] || { echo "  $slug: no backups dir — skipped"; return 2; }
 
   dest="s3://$BACKUP_S3_BUCKET/$slug"
 
@@ -38,27 +39,29 @@ sync_one() {
     [ -n "${BACKUP_S3_REGION:-}" ]   && args+=(--region "$BACKUP_S3_REGION")
     if AWS_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY" AWS_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_KEY" \
        aws "${args[@]}" >/dev/null 2>&1; then
-      echo "  $slug: synced -> $dest"; SYNCED=$((SYNCED+1))
+      echo "  $slug: synced -> $dest"; return 0
     else
-      echo "  $slug: aws s3 sync FAILED"; FAILED=$((FAILED+1))
+      echo "  $slug: aws s3 sync FAILED"; return 1
     fi
   elif have rclone; then
+    # `copy`, not `sync`: local retention deletes must NOT propagate offsite —
+    # remote retention is managed by bucket lifecycle rules instead.
     if RCLONE_CONFIG_GPT_TYPE=s3 \
        RCLONE_CONFIG_GPT_PROVIDER="${BACKUP_S3_PROVIDER:-Other}" \
        RCLONE_CONFIG_GPT_ACCESS_KEY_ID="$BACKUP_S3_ACCESS_KEY" \
        RCLONE_CONFIG_GPT_SECRET_ACCESS_KEY="$BACKUP_S3_SECRET_KEY" \
        RCLONE_CONFIG_GPT_ENDPOINT="${BACKUP_S3_ENDPOINT:-}" \
        RCLONE_CONFIG_GPT_REGION="${BACKUP_S3_REGION:-auto}" \
-       rclone sync "$dir/backups/" "gpt:$BACKUP_S3_BUCKET/$slug" \
+       rclone copy "$dir/backups/" "gpt:$BACKUP_S3_BUCKET/$slug" \
          --include '*.sql.gz' >/dev/null 2>&1; then
-      echo "  $slug: synced -> $dest"; SYNCED=$((SYNCED+1))
+      echo "  $slug: synced -> $dest"; return 0
     else
-      echo "  $slug: rclone sync FAILED"; FAILED=$((FAILED+1))
+      echo "  $slug: rclone sync FAILED"; return 1
     fi
   else
-    echo "  $slug: neither aws CLI nor rclone installed — cannot sync"; FAILED=$((FAILED+1))
+    echo "  $slug: neither aws CLI nor rclone installed — cannot sync"; return 1
   fi
-}
+)
 
 found=0
 for marker in /opt/*/.gpt-instance; do
@@ -67,6 +70,10 @@ for marker in /opt/*/.gpt-instance; do
   [ -n "$ONLY" ] && [ "$(basename "$dir")" != "$ONLY" ] && continue
   found=$((found+1))
   sync_one "$dir"
+  rc=$?
+  [ "$rc" = 0 ] && SYNCED=$((SYNCED+1))
+  [ "$rc" = 1 ] && FAILED=$((FAILED+1))
+  [ "$rc" = 2 ] && SKIPPED=$((SKIPPED+1))
 done
 
 [ "$found" = 0 ] && echo "no GPT instances found"

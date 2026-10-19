@@ -130,7 +130,7 @@ const apiFetch = async (endpoint, options = {}) => {
     // Handle specific error status codes
     if (response.status === 401) {
       // Handle 401 Unauthorized - check if it's a login failure or token expiry
-      if (endpoint.includes('/auth/login') || endpoint.includes('/auth/register')) {
+      if (endpoint.includes('/auth/login') || endpoint.includes('/auth/register') || endpoint.includes('/auth/mfa-verify')) {
         throw new Error(data?.message || 'Authentication failed. Please check your credentials.');
       }
       // For authenticated endpoints, it's likely a token expiry
@@ -303,6 +303,9 @@ export const authAPI = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  logout: () =>
+    apiFetch('/auth/logout', { method: 'POST' }),
 };
 
 // ============================================================================

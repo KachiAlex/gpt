@@ -303,10 +303,7 @@ export default function ContractorNew() {
  };
  
  // Add contractor to the context (this will update the contractors list)
- console.log('About to call addContractor with data:', contractorData);
  const newContractor = await addContractor(contractorData);
- 
- console.log('Contractor added successfully:', newContractor);
  
  // Assign projects to the contractor after creation
  if (assignedProjects.length > 0 && newContractor?.id) {

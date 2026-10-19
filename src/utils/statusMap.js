@@ -40,6 +40,21 @@ export const STATUS_LABELS = {
 export const statusKey = (status) => STATUS_KEYS[status] || 'not-started';
 export const statusLabel = (status) => STATUS_LABELS[status] || status || 'Unknown';
 
+// Canonical category options — values match the backend ProjectCategory enum
+// exactly. Always store/send `value`, never re-derive it from the label.
+export const CATEGORY_OPTIONS = [
+  { value: 'TRANSPORTATION', label: 'Transportation' },
+  { value: 'HEALTHCARE', label: 'Healthcare' },
+  { value: 'EDUCATION', label: 'Education' },
+  { value: 'WATER_SANITATION', label: 'Water & Sanitation' },
+  { value: 'HOUSING', label: 'Housing' },
+  { value: 'AGRICULTURE', label: 'Agriculture' },
+  { value: 'ENERGY', label: 'Energy' },
+  { value: 'ICT', label: 'ICT' },
+  { value: 'TOURISM', label: 'Tourism' },
+  { value: 'ENVIRONMENT', label: 'Environment' },
+];
+
 export const CATEGORY_LABELS = {
   TRANSPORTATION: 'Transportation',
   HEALTHCARE: 'Healthcare',

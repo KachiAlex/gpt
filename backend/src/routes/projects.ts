@@ -7,7 +7,7 @@ import {
   ListProjectsParams,
   UpdateProjectInput,
 } from '../types/models';
-import { ProjectCategory, ProjectStatus } from '../types/domain';
+import { ProjectCategory, ProjectStatus, Priority } from '../types/domain';
 import { query, rowToCamelCase } from '../config/database';
 import { audit, auditFromReq } from '../services/auditService';
 
@@ -199,6 +199,22 @@ router.post('/', verifyToken, requireAdmin, async (req: Request, res: Response) 
       });
     }
 
+    if (!Object.values(ProjectCategory).includes(payload.category as ProjectCategory)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid category — must be one of: ${Object.values(ProjectCategory).join(', ')}`,
+      });
+    }
+    if (!Object.values(Priority).includes(payload.priority as Priority)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid priority — must be one of: ${Object.values(Priority).join(', ')}`,
+      });
+    }
+    if (!Number.isFinite(payload.budget)) {
+      return res.status(400).json({ success: false, message: 'budget must be a number' });
+    }
+
     const project = await projectRepository.create(payload);
     await audit(auditFromReq(req, 'project.create', 'project', project.id, { name: project.name, budget: project.budget }));
 
@@ -235,18 +251,37 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
 
     const isAdmin = req.user.role === 'GOVERNMENT_ADMIN';
     const isProjectManager = project.projectManagerId === req.user.userId;
-    const isContractor = project.contractorId && req.user.role === 'CONTRACTOR';
+    // A contractor may only touch a project actually assigned to their company
+    const contractor = req.user.role === 'CONTRACTOR'
+      ? await contractorRepository.findByUserId(req.user.userId)
+      : null;
+    const isAssignedContractor = !!contractor && contractor.id === project.contractorId;
 
-    if (!isAdmin && !isProjectManager && !isContractor) {
+    if (!isAdmin && !isProjectManager && !isAssignedContractor) {
       return res.status(403).json({ success: false, message: 'Not authorized to update this project' });
     }
 
+    // Per-role field whitelists — publication, financial state, and progress
+    // are only changeable via their dedicated endpoints/cascade.
+    const ADMIN_FIELDS = new Set([
+      'name', 'description', 'category', 'lga', 'priority', 'status',
+      'budget', 'allocatedBudget', 'spentBudget', 'fundingSource',
+      'startDate', 'expectedEndDate', 'actualEndDate', 'beneficiaries',
+      'contractorId', 'projectManagerId', 'location',
+      'weatherDelay', 'safetyIncidents', 'qualityScore', 'safetyCompliance',
+    ]);
+    const PM_FIELDS = new Set([
+      'name', 'description', 'category', 'lga', 'priority', 'status',
+      'startDate', 'expectedEndDate', 'actualEndDate', 'beneficiaries',
+      'location', 'weatherDelay', 'safetyIncidents', 'qualityScore', 'safetyCompliance',
+    ]);
+    const CONTRACTOR_FIELDS = new Set(['weatherDelay', 'safetyIncidents']);
+    const allowed = isAdmin ? ADMIN_FIELDS : isProjectManager ? PM_FIELDS : CONTRACTOR_FIELDS;
+
     const updates: UpdateProjectInput = {};
     for (const [key, value] of Object.entries(req.body)) {
-      if (value === undefined || value === null) continue;
-      // Publication + financial state are only changeable via dedicated endpoints
-      if (key === 'isPublic' || key === 'is_public' || key === 'publishedAt' || key === 'publishedBy') continue;
-      if (key === 'financialStatus' || key === 'financial_status') continue;
+      if (value === undefined) continue;
+      if (!allowed.has(key)) continue;
       if (key === 'lga') {
         updates.lga = Array.isArray(value) ? value : [value];
       } else if (key === 'startDate' || key === 'expectedEndDate' || key === 'actualEndDate') {

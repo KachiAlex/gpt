@@ -314,20 +314,24 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
       });
     }
 
-    const updateData: Record<string, any> = { ...req.body };
+    // Explicit field whitelist — trust/verification fields are admin-only;
+    // a contractor must never be able to verify, certify, or rate themselves.
+    const OWNER_FIELDS = new Set([
+      'companyName', 'contactPerson', 'companyEmail', 'companyPhone',
+      'companyAddress', 'yearsExperience', 'specialization',
+    ]);
+    const ADMIN_ONLY_FIELDS = new Set([
+      'isVerified', 'isCertified', 'rating', 'registrationNo',
+    ]);
+    const allowed = isAdmin ? new Set([...OWNER_FIELDS, ...ADMIN_ONLY_FIELDS]) : OWNER_FIELDS;
 
-    // Remove fields that shouldn't be updated
-    delete updateData.id;
-    delete updateData.userId;
-    delete updateData.createdAt;
-
-    // Build update object
     const updates: UpdateContractorInput = {};
-    for (const [key, value] of Object.entries(updateData)) {
+    for (const [key, value] of Object.entries(req.body as Record<string, any>)) {
       if (value === undefined || value === null) continue;
+      if (!allowed.has(key)) continue;
       if (key === 'specialization') {
         updates.specialization = normalizeSpecialization(value);
-      } else if (key in contractor) {
+      } else {
         (updates as any)[key] = value;
       }
     }

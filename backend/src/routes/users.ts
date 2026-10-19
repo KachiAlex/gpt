@@ -110,8 +110,11 @@ router.post(
         return res.status(400).json({ success: false, message: 'No file provided' });
       }
 
-      if (!file.mimetype.startsWith('image/')) {
-        return res.status(400).json({ success: false, message: 'Only image files are allowed' });
+      // Raster formats only — SVG can carry embedded script and is served
+      // from the app origin via /uploads/public.
+      const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+      if (!allowed.has(file.mimetype)) {
+        return res.status(400).json({ success: false, message: 'Only JPEG, PNG, WebP or GIF images are allowed' });
       }
 
       const uploadResult = await fileUploadService.uploadFile(

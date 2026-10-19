@@ -13,6 +13,8 @@ for marker in /opt/*/.gpt-instance; do
   dir=$(dirname "$marker"); slug=$(basename "$dir")
   domain=$(grep -oP '(?<=^domain=).*' "$marker" 2>/dev/null || echo '?')
 
+  # Clear prior instance's vars so missing keys default instead of leaking
+  unset STACK_PREFIX COMPOSE_PROJECT_NAME API_PORT POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD BACKUP_S3_BUCKET
   set -a; . "$dir/.env" 2>/dev/null; set +a
   PREFIX="${STACK_PREFIX:-$slug}"; PORT="${API_PORT:-?}"
 

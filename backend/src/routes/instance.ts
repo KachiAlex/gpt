@@ -201,10 +201,20 @@ const applyWorkflowUpdate = async (incoming: any[], auditEntry: ReturnType<typeo
       if (!key || seen.has(key)) continue;
       seen.add(key);
       if (byKey.has(key)) {
-        await client.query(
-          `UPDATE workflow_stages SET label = $2::text, allowed_roles = $3::text[], order_index = $4::int WHERE key = $1::text`,
-          [key, s.label, s.allowedRoles, order]
-        );
+        const existing = byKey.get(key) as any;
+        if (existing?.is_system) {
+          // System stages keep their configured role gate — an admin can
+          // rename/reorder them but not widen who can act on them.
+          await client.query(
+            `UPDATE workflow_stages SET label = $2::text, order_index = $3::int WHERE key = $1::text`,
+            [key, s.label, order]
+          );
+        } else {
+          await client.query(
+            `UPDATE workflow_stages SET label = $2::text, allowed_roles = $3::text[], order_index = $4::int WHERE key = $1::text`,
+            [key, s.label, s.allowedRoles, order]
+          );
+        }
       } else {
         await client.query(
           `INSERT INTO workflow_stages (key, label, order_index, allowed_roles, maps_to_status, is_terminal, is_system)
@@ -215,10 +225,14 @@ const applyWorkflowUpdate = async (incoming: any[], auditEntry: ReturnType<typeo
       order += 1;
     }
 
-    // Delete custom stages that were removed (never system ones)
+    // Delete custom stages that were removed (never system ones).
+    // Submissions sitting on a deleted stage move to the first remaining
+    // mid-stage, or back to SUBMITTED (a system stage that always exists) —
+    // never a hard-coded stage that may itself have been removed.
+    const fallbackStage = [...seen][0] ?? 'SUBMITTED';
     for (const r of existing.rows as any[]) {
       if (!r.is_system && !seen.has(r.key)) {
-        await client.query(`UPDATE submissions SET stage = 'UNDER_REVIEW' WHERE stage = $1`, [r.key]);
+        await client.query(`UPDATE submissions SET stage = $2 WHERE stage = $1`, [r.key, fallbackStage]);
         await client.query(`DELETE FROM workflow_stages WHERE key = $1`, [r.key]);
       }
     }

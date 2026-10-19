@@ -96,12 +96,12 @@ const mapProjectRow = (row: any): BasePublicProject => {
 
 const mapPublicProject = (row: any): PublicProject => {
   const project = mapProjectRow(row);
-  const contractor = row.contractorIdRef
+  const contractor = row.contractor_id_ref
     ? {
-        id: row.contractorIdRef,
-        companyName: row.contractorName ?? null,
-        rating: row.contractorRating !== undefined && row.contractorRating !== null
-          ? Number(row.contractorRating)
+        id: row.contractor_id_ref,
+        companyName: row.contractor_name ?? null,
+        rating: row.contractor_rating !== undefined && row.contractor_rating !== null
+          ? Number(row.contractor_rating)
           : null,
       }
     : null;
@@ -300,11 +300,42 @@ router.get('/projects/:id', async (req: Request, res: Response) => {
       order: (milestone as any).orderIndex ?? undefined,
     }));
 
+    // Whitelist the public projection — never spread the full DbProject
+    // (financialStatus, publishedBy, etc. are internal fields).
+    const publicProject: BasePublicProject = {
+      id: project.id,
+      name: project.name,
+      description: project.description ?? null,
+      category: project.category,
+      lga: Array.isArray(project.lga) ? project.lga : [],
+      priority: project.priority,
+      status: project.status,
+      progress: Number(project.progress ?? 0),
+      budget: Number(project.budget ?? 0),
+      allocatedBudget: Number(project.allocatedBudget ?? project.budget ?? 0),
+      spentBudget: Number(project.spentBudget ?? 0),
+      fundingSource: project.fundingSource ?? null,
+      startDate: project.startDate ?? null,
+      expectedEndDate: project.expectedEndDate ?? null,
+      actualEndDate: project.actualEndDate ?? null,
+      beneficiaries: project.beneficiaries ?? null,
+      contractorId: project.contractorId ?? null,
+      projectManagerId: project.projectManagerId ?? null,
+      location: project.location ?? null,
+      isPublic: true,
+      qualityScore: Number(project.qualityScore ?? 0),
+      safetyCompliance: project.safetyCompliance ?? null,
+      weatherDelay: Number(project.weatherDelay ?? 0),
+      safetyIncidents: Number(project.safetyIncidents ?? 0),
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+    };
+
     return res.json({
       success: true,
       data: {
         project: {
-          ...project,
+          ...publicProject,
           contractor,
           milestones: publicMilestones,
         },

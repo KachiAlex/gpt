@@ -20,20 +20,7 @@ import { projectAPI } from '../services/api';
 import { useContractors } from '../contexts/ContractorsContext';
 import { showSuccess, showError } from '../utils/toast';
 import { validateProjectForm } from '../utils/validation';
-import { areasLabel, currency, fmtNaira } from '../utils/statusMap';
-
-const projectCategories = [
- 'Transportation',
- 'Healthcare',
- 'Education', 
- 'Water & Sanitation',
- 'Housing',
- 'Agriculture',
- 'Energy',
- 'ICT',
- 'Tourism',
- 'Environment'
-];
+import { areasLabel, currency, fmtNaira, CATEGORY_OPTIONS, categoryLabel } from '../utils/statusMap';
 
 const priorities = ['Low', 'Medium', 'High', 'Critical'];
 const fundingSources = ['State Budget', 'Federal Grant', 'World Bank', 'USAID', 'EU Grant', 'Private Partnership'];
@@ -181,7 +168,7 @@ export default function ProjectNew() {
  const submissionData = {
  name: formData.name,
  description: formData.description,
- category: formData.category.toUpperCase().replace(/\s+/g, '_'),
+ category: formData.category, // already the backend enum value
  lga: formData.lga.length === 1 ? formData.lga[0] : formData.lga, // Send array if multiple, single string if one
  priority: formData.priority.toUpperCase(),
  budget: parseFloat(formData.budget),
@@ -345,8 +332,8 @@ export default function ProjectNew() {
  }`}
  >
  <option value="">Select category</option>
- {projectCategories.map(category => (
- <option key={category} value={category}>{category}</option>
+ {CATEGORY_OPTIONS.map(c => (
+ <option key={c.value} value={c.value}>{c.label}</option>
  ))}
  </select>
  {errors.category && <p className="text-red-700 dark:text-red-400 text-sm mt-1">{errors.category}</p>}
@@ -706,7 +693,7 @@ export default function ProjectNew() {
  </div>
  <div>
  <span className="font-medium text-ink">Category:</span>
- <p className="text-ink">{formData.category || 'Not specified'}</p>
+ <p className="text-ink">{formData.category ? categoryLabel(formData.category) : 'Not specified'}</p>
  </div>
  <div>
  <span className="font-medium text-ink">{areasLabel()}:</span>

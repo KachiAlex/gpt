@@ -18,6 +18,12 @@ build/
 *.backup
 backend/uploads/
 
+# Per-instance deployment artifacts (live under /opt/<slug> on the VPS)
+backups/
+.migrations-applied
+.gpt-instance
+.firebase/
+
 # IDE files
 .vscode/
 .idea/

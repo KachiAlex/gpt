@@ -137,7 +137,6 @@ export const ContractorsProvider = ({ children }) => {
       phone: contractorData.phone,
       };
 
-      console.log('Registering user:', userRegistrationData);
       const userResponse = await authAPI.register(userRegistrationData);
       
       if (!userResponse.success) {
@@ -145,7 +144,6 @@ export const ContractorsProvider = ({ children }) => {
       }
 
       const userId = userResponse.data.user.id;
-      console.log('User registered successfully with ID:', userId);
 
       // Step 2: Create contractor profile using the user ID
       const contractorProfileData = {

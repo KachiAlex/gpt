@@ -5,11 +5,11 @@ import clsx from 'clsx';
 import { publicAPI } from '../services/api';
 import StatusPill from '../components/ui/StatusPill';
 import ProgressBar from '../components/ui/ProgressBar';
-import { categoryLabel, fmtNaira, fmtNairaCompact, fmtDate, areaLabel, areasLabel } from '../utils/statusMap';
+import { categoryLabel, CATEGORY_OPTIONS, fmtNaira, fmtNairaCompact, fmtDate, areaLabel, areasLabel } from '../utils/statusMap';
 import { useInstance } from '../contexts/InstanceContext';
 import ProjectMap, { getCoords } from '../components/ui/ProjectMap';
 
-const CATEGORIES = ['All', 'Transportation', 'Healthcare', 'Water & Sanitation', 'Education', 'Housing'];
+const CATEGORIES = [{ value: 'All', label: 'All' }, ...CATEGORY_OPTIONS];
 const SORTS = [
   { id: 'recent', label: 'Recently updated' },
   { id: 'budget', label: 'Budget, high to low' },
@@ -58,7 +58,7 @@ export default function PublicPortal() {
     let isMounted = true;
     setLoading(true);
     const filters = {};
-    if (category !== 'All') filters.category = category.toUpperCase().replace(/ & /g, '_AND_').replace(/ /g, '_');
+    if (category !== 'All') filters.category = category; // already the enum value
     if (lga) filters.lga = lga;
     if (searchTerm.trim()) filters.search = searchTerm.trim();
     publicAPI.getProjects({ ...filters, limit: 50 })
@@ -170,18 +170,18 @@ export default function PublicPortal() {
           <div role="group" aria-label="Filter by category" className="mt-4 flex flex-wrap gap-2.5">
             {CATEGORIES.map((c) => (
               <button
-                key={c}
+                key={c.value}
                 type="button"
-                aria-pressed={category === c}
-                onClick={() => setCategory(c)}
+                aria-pressed={category === c.value}
+                onClick={() => setCategory(c.value)}
                 className={clsx(
                   'min-h-[44px] px-[18px] rounded-full text-[15px] font-semibold border-[1.5px] transition-colors',
-                  category === c
+                  category === c.value
                     ? 'bg-primary-700 border-primary-700 text-white'
                     : 'bg-white border-slate-300 text-slate-700 hover:border-slate-400'
                 )}
               >
-                {c}
+                {c.label}
               </button>
             ))}
           </div>

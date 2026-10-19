@@ -40,7 +40,7 @@ export class FileUploadService {
     projectId?: string,
     submissionId?: string
   ): string {
-    const parts = [isPublic ? 'public' : 'private', category.toString().toLowerCase()];
+    const parts = [isPublic ? 'public' : 'private', this.sanitizeSegment(category.toString())];
     if (projectId) parts.push('projects', this.sanitizeSegment(projectId));
     if (submissionId) parts.push('submissions', this.sanitizeSegment(submissionId));
     return parts.join('/');
@@ -61,7 +61,10 @@ export class FileUploadService {
   ): Promise<UploadResult> {
     const fileName = `${crypto.randomUUID()}${this.sanitizeExtension(file.originalname)}`;
     const folder = this.buildFolder(isPublic, category, projectId, submissionId);
-    const absoluteDir = path.join(uploadRoot, folder);
+    const absoluteDir = path.resolve(uploadRoot, folder);
+    if (!absoluteDir.startsWith(uploadRoot + path.sep)) {
+      throw new Error('Invalid upload path');
+    }
     await ensureDir(absoluteDir);
 
     const relativePath = `${folder}/${fileName}`;

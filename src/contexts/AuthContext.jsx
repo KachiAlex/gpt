@@ -27,7 +27,15 @@ export const AuthProvider = ({ children }) => {
         const authData = localStorage.getItem('gpt_auth');
         if (authData) {
           const parsed = JSON.parse(authData);
-          console.log('Loading cached auth data:', parsed); // Debug log
+          // Reject expired tokens up front instead of trusting stale cache
+          try {
+            const payload = JSON.parse(atob(parsed.token.split('.')[1]));
+            if (payload.exp && payload.exp * 1000 < Date.now()) {
+              localStorage.removeItem('gpt_auth');
+              if (isMounted) setLoading(false);
+              return;
+            }
+          } catch { /* malformed token — clear it below */ }
           if (isMounted) {
             setUser(parsed.user);
             setToken(parsed.token);
@@ -103,7 +111,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = () => {
-    // Disconnect socket before signing out
+    // Disconnect socket + record the logout server-side (fire-and-forget)
+    authAPI.logout().catch(() => {});
     disconnectSocket();
     setUser(null);
     setToken(null);
@@ -112,7 +121,6 @@ export const AuthProvider = ({ children }) => {
 
   const updateUser = (userData) => {
     const updatedUser = { ...user, ...userData };
-    console.log('Updating user from:', user, 'to:', updatedUser); // Debug log
     setUser(updatedUser);
     const authData = { user: updatedUser, token };
     localStorage.setItem('gpt_auth', JSON.stringify(authData));

@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
+import { query } from '../config/database';
 
 export interface AuthUser {
   userId: string;
@@ -37,8 +38,30 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
   }
 
   try {
-    req.user = jwt.verify(token, config.jwtSecret) as AuthUser;
-    next();
+    const payload = jwt.verify(token, config.jwtSecret) as AuthUser & { purpose?: string };
+    // Challenge/scoped tokens (e.g. the MFA `purpose: 'mfa'` token) are not
+    // session credentials and must not reach authenticated routes.
+    if (payload.purpose || !payload.userId || !payload.role) {
+      res.status(401).json({ success: false, message: 'Invalid token' });
+      return;
+    }
+
+    // Re-check the account against the DB so deactivated/demoted users lose
+    // access immediately instead of living out the token lifetime.
+    query('SELECT is_active, role FROM users WHERE id = $1', [payload.userId])
+      .then((result) => {
+        const user = result.rows[0];
+        if (!user || user.is_active === false) {
+          res.status(401).json({ success: false, message: 'Account is not active' });
+          return;
+        }
+        req.user = { ...payload, role: user.role };
+        next();
+      })
+      .catch((error) => {
+        console.error('Auth user check error:', error);
+        res.status(500).json({ success: false, message: 'Authentication failed' });
+      });
   } catch (error: any) {
     const message = error.name === 'TokenExpiredError' ? 'Token expired' : 'Invalid token';
     res.status(401).json({ success: false, message });

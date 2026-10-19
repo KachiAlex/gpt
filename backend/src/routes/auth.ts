@@ -75,7 +75,10 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const user = await userRepository.findByEmail((email as string).toLowerCase());
 
+    // Run a dummy hash comparison on unknown/inactive emails so response
+    // timing doesn't reveal whether the account exists.
     if (!user || !user.isActive) {
+      await verifyPassword(password, '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy').catch(() => undefined);
       await audit({ action: 'auth.login_failed', detail: { email: (email as string)?.toLowerCase(), reason: !user ? 'unknown_email' : 'inactive' }, ip: (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress });
       return res.status(401).json({
         success: false,
@@ -409,7 +412,7 @@ router.post('/register', async (req: Request, res: Response) => {
  */
 router.put('/profile', authenticate, async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, phone, department, jobTitle, address, city, state, profileImage } = req.body;
+    const { firstName, lastName, phone, department, jobTitle, address, city, state, profileImage, preferences } = req.body;
 
     const user = await userRepository.update(req.user!.userId, {
       firstName,
@@ -421,6 +424,10 @@ router.put('/profile', authenticate, async (req: Request, res: Response) => {
       city,
       state,
       profileImage,
+      // Only persist a plain object — ignore strings/arrays/numbers
+      ...(preferences && typeof preferences === 'object' && !Array.isArray(preferences)
+        ? { preferences }
+        : {}),
     });
 
     if (!user) {
@@ -542,7 +549,8 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
         'Reset your Government Project Tracker password',
         `A password reset was requested for this account.\n\nOpen this link within 30 minutes to choose a new password:\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`
       );
-      if (!sent) {
+      if (!sent && config.nodeEnv !== 'production') {
+        // Dev fallback only — never write live reset tokens to production logs
         console.log(`[auth] Password reset link for ${email}: ${resetUrl}`);
       }
     }

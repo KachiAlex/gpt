@@ -108,7 +108,6 @@ export default function MEOfficerNew() {
  jobTitle: formData.jobTitle
  };
 
- console.log('Registering M&E Officer:', registrationData);
  const response = await authAPI.register(registrationData);
  
  if (response.success) {

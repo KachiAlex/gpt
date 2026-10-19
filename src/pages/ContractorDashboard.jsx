@@ -65,7 +65,9 @@ export default function ContractorDashboard() {
  const loadProjects = async () => {
  try {
  setLoading(true);
- const res = await projectAPI.getAll();
+ // Scope to this contractor's assigned projects — the contractor profile
+ // id rides on the session user object (set at login).
+ const res = await projectAPI.getAll(user?.contractorId ? { contractorId: user.contractorId, limit: 100 } : { limit: 100 });
  if (res?.success && isMounted) {
  setContractorProjects(res.data?.projects || []);
  }

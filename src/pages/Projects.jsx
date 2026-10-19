@@ -29,19 +29,27 @@ const statusMap = {
  CANCELLED: 'Cancelled',
 };
 
-const statusOptions = ['All Statuses', 'In Progress', 'Completed', 'Delayed', 'Not Started'];
+const statusOptions = [
+ { value: '', label: 'All Statuses' },
+ { value: 'NOT_STARTED', label: 'Not Started' },
+ { value: 'IN_PROGRESS', label: 'In Progress' },
+ { value: 'COMPLETED', label: 'Completed' },
+ { value: 'DELAYED', label: 'Delayed' },
+];
 
 const statusStyles = {
- 'Completed': 'status-completed',
- 'In Progress': 'status-in-progress',
- 'Delayed': 'status-delayed',
- 'Not Started': 'status-not-started'
+ COMPLETED: 'status-completed',
+ IN_PROGRESS: 'status-in-progress',
+ DELAYED: 'status-delayed',
+ NOT_STARTED: 'status-not-started',
+ ON_HOLD: 'status-delayed',
+ CANCELLED: 'status-delayed',
 };
 
 export default function Projects() {
  const [searchParams] = useSearchParams();
  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
- const [statusFilter, setStatusFilter] = useState('All Statuses');
+ const [statusFilter, setStatusFilter] = useState('');
  const [selectedLGAs, setSelectedLGAs] = useState([]); // Changed to array for multiple selection
  const [showFilters, setShowFilters] = useState(false);
  const [showLGADropdown, setShowLGADropdown] = useState(false);
@@ -109,7 +117,7 @@ export default function Projects() {
  const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
  (project.contractor || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
  (project.id || '').toLowerCase().includes(searchTerm.toLowerCase());
- const matchesStatus = statusFilter === 'All Statuses' || project.status === statusFilter;
+ const matchesStatus = !statusFilter || project.status === statusFilter;
  // Show all when no areas selected, otherwise match project.lga (array or string) against the selection
  let matchesLGA = true;
  if (selectedLGAs.length > 0) {
@@ -186,7 +194,7 @@ export default function Projects() {
  className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  {statusOptions.map(option => (
- <option key={option} value={option}>{option}</option>
+ <option key={option.value} value={option.value}>{option.label}</option>
  ))}
  </select>
 
@@ -310,7 +318,7 @@ export default function Projects() {
  <td className="py-5 px-4 text-base font-medium text-ink">{project.budget}</td>
  <td className="py-5 px-4">
  <span className={clsx('status-badge', statusStyles[project.status])}>
- {project.status}
+ {statusMap[project.status] || project.status}
  </span>
  </td>
  <td className="py-5 px-4">
@@ -362,7 +370,7 @@ export default function Projects() {
  <p className="text-sm text-muted font-mono">{project.id}</p>
  </div>
  <span className={clsx('status-badge', statusStyles[project.status])}>
- {project.status}
+ {statusMap[project.status] || project.status}
  </span>
  </div>
  

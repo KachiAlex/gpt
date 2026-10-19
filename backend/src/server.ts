@@ -14,6 +14,11 @@ import pool from './config/database';
 const app = express();
 const httpServer = createServer(app);
 
+// Trust the nginx loopback hop so req.ip reflects the real client —
+// without this every request rates as 127.0.0.1 and all users share one
+// rate-limit bucket.
+app.set('trust proxy', 'loopback');
+
 // CORS origin matcher: supports exact origins and "*.domain.com" wildcard
 // suffixes (e.g. "*.vercel.app" covers all Vercel preview/prod URLs).
 const isAllowedOrigin = (origin: string, allowed: string[]): boolean =>
@@ -145,23 +150,49 @@ app.use((_req: express.Request, res: express.Response) => {
 // Error handling middleware
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err);
-  res.status(err.status || 500).json({
+  const status = err.status || 500;
+  res.status(status).json({
     success: false,
-    message: err.message || 'Internal server error',
+    // 4xx messages are safe to surface; 5xx messages may leak internals
+    message: status < 500 ? (err.message || 'Request failed') : 'Internal server error',
   });
 });
 
-// Socket.IO connection handling
+// Socket.IO authentication — clients must present the same JWT used for the
+// REST API in the handshake (`auth.token`). Rooms are derived from the
+// verified token, never from client-supplied IDs.
+import jwt from 'jsonwebtoken';
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (typeof token !== 'string' || !token) {
+    return next(new Error('Authentication required'));
+  }
+  try {
+    const payload = jwt.verify(token, config.jwtSecret) as { userId?: string; role?: string; purpose?: string };
+    if (!payload.userId || payload.purpose) {
+      return next(new Error('Invalid token'));
+    }
+    socket.data.user = { userId: payload.userId, role: payload.role };
+    return next();
+  } catch {
+    return next(new Error('Invalid token'));
+  }
+});
+
+const GOV_SOCKET_ROLES = new Set(['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER']);
+
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
+  const user = socket.data.user as { userId: string; role?: string };
+  // Personal notification room comes straight from the verified token —
+  // no client-supplied id, so nobody can subscribe to another user.
+  socket.join(`user-${user.userId}`);
+  if (GOV_SOCKET_ROLES.has(user.role ?? '')) socket.join('role-gov');
 
-  // Join user to their personal room for notifications
-  socket.on('join-user-room', (userId: string) => {
-    socket.join(`user-${userId}`);
-  });
-
-  // Join project room for real-time updates
-  socket.on('join-project-room', (projectId: string) => {
+  // Project rooms are for government staff only; contractors receive
+  // submission events through their personal room instead.
+  socket.on('join-project-room', async (projectId: string) => {
+    if (typeof projectId !== 'string' || !GOV_SOCKET_ROLES.has(user.role ?? '')) return;
     socket.join(`project-${projectId}`);
   });
 

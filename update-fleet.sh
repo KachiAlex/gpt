@@ -29,34 +29,54 @@ for dir in $(instances); do
   slug=$(basename "$dir")
   echo "==> $slug ($dir)"
 
-  set -a; . "$dir/.env"; set +a   # STACK_PREFIX, POSTGRES_*, API_PORT, COMPOSE_PROJECT_NAME
+  # Clear anything a previous instance's .env may have exported — missing
+  # keys must default, not inherit another tenant's values.
+  unset STACK_PREFIX COMPOSE_PROJECT_NAME API_PORT POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD
+  set -a; . "$dir/.env"; set +a
   PREFIX="${STACK_PREFIX:-$slug}"
 
   # --- code ---
+  OLD_SHA=$(git -C "$dir" rev-parse HEAD 2>/dev/null || true)
   if ! git -C "$dir" fetch --depth 1 origin "$REF" 2>&1 | tail -1; then
     echo "    FAIL: git fetch"; FAILED+=("$slug"); continue
   fi
   git -C "$dir" checkout -qf FETCH_HEAD || { echo "    FAIL: git checkout $REF"; FAILED+=("$slug"); continue; }
   echo "    code: $(git -C "$dir" rev-parse --short HEAD)"
 
-  # --- migrations (ledger-tracked, applied in filename order) ---
+  # --- pre-migration safety dump ---
+  mkdir -p "$dir/backups"; chmod 700 "$dir/backups"
+  docker exec "$PREFIX-db" pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" 2>/dev/null \
+    | gzip > "$dir/backups/pre-update-$(date +%F-%H%M%S).sql.gz" || true
+
+  # --- migrations (ledger-tracked, applied in filename order, transactional) ---
   ledger="$dir/.migrations-applied"; touch "$ledger"
   mfail=0
   for m in "$dir"/backend/migrations/*.sql; do
+    [ -e "$m" ] || continue
     name=$(basename "$m")
     grep -qx "$name" "$ledger" && continue
     echo "    migrating: $name"
-    if docker exec -i "$PREFIX-db" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 < "$m" >/dev/null 2>&1; then
+    if docker exec -i "$PREFIX-db" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 --single-transaction < "$m" >/dev/null 2>&1; then
       echo "$name" >> "$ledger"
     else
       echo "    FAIL: migration $name"; mfail=1; break
     fi
   done
-  [ "$mfail" = 1 ] && { FAILED+=("$slug"); continue; }
+  if [ "$mfail" = 1 ]; then
+    [ -n "$OLD_SHA" ] && git -C "$dir" checkout -qf "$OLD_SHA" \
+      && (cd "$dir" && docker compose up -d --build api >/dev/null 2>&1) \
+      && echo "    rolled back to ${OLD_SHA:0:7}"
+    FAILED+=("$slug"); continue
+  fi
 
   # --- rebuild api (db is untouched) ---
-  (cd "$dir" && docker compose up -d --build api >/dev/null 2>&1) \
-    || { echo "    FAIL: docker compose build"; FAILED+=("$slug"); continue; }
+  if ! (cd "$dir" && docker compose up -d --build api >/dev/null 2>&1); then
+    echo "    FAIL: docker compose build"
+    [ -n "$OLD_SHA" ] && git -C "$dir" checkout -qf "$OLD_SHA" \
+      && (cd "$dir" && docker compose up -d --build api >/dev/null 2>&1) \
+      && echo "    rolled back to ${OLD_SHA:0:7}"
+    FAILED+=("$slug"); continue
+  fi
 
   # --- health ---
   ok=0
@@ -68,6 +88,9 @@ for dir in $(instances); do
     echo "    healthy on :$API_PORT"
   else
     echo "    FAIL: health check timed out — docker logs $PREFIX-api"
+    [ -n "$OLD_SHA" ] && git -C "$dir" checkout -qf "$OLD_SHA" \
+      && (cd "$dir" && docker compose up -d --build api >/dev/null 2>&1) \
+      && echo "    rolled back to ${OLD_SHA:0:7}"
     FAILED+=("$slug")
   fi
 done

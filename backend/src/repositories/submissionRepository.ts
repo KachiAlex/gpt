@@ -400,9 +400,16 @@ export const submissionRepository = {
       await client.query('BEGIN');
 
       const status = input.action as SubmissionStatus;
+      // Keep stage in sync for terminal outcomes: move to the workflow stage
+      // whose maps_to_status matches (e.g. APPROVED terminal). Non-terminal
+      // flags (FLAGGED / REQUIRES_CLARIFICATION) keep the current stage.
       const updateResult = await client.query(
         `UPDATE submissions s
          SET status = $1,
+             stage = COALESCE(
+               (SELECT key FROM workflow_stages WHERE maps_to_status = $1 LIMIT 1),
+               s.stage
+             ),
              reviewed_at = NOW(),
              reviewed_by = $2,
              review_comments = $3,
@@ -419,10 +426,15 @@ export const submissionRepository = {
         return null;
       }
 
+      // approval_action is a separate enum — map submission statuses onto it
+      // (REQUIRES_CLARIFICATION -> REQUEST_CLARIFICATION).
+      const approvalAction = status === ('REQUIRES_CLARIFICATION' as SubmissionStatus)
+        ? 'REQUEST_CLARIFICATION'
+        : status;
       await client.query(
         `INSERT INTO approvals (submission_id, reviewer_id, action, comments)
          VALUES ($1, $2, $3, $4)`,
-        [id, reviewerId, input.action, input.comments ?? null]
+        [id, reviewerId, approvalAction, input.comments ?? null]
       );
 
       if (cascade && status === SubmissionStatus.APPROVED && cascade.milestoneId) {
@@ -498,6 +510,21 @@ export const submissionRepository = {
         return null;
       }
       const sub = rowToCamelCase(lockResult.rows[0]);
+
+      // A stage that allows CONTRACTOR applies only to the owning contractor
+      if (actorRole === 'CONTRACTOR') {
+        const contractorResult = await client.query(
+          'SELECT id FROM contractor_profiles WHERE user_id = $1',
+          [actorId]
+        );
+        if (contractorResult.rows[0]?.id !== sub.contractorId) {
+          await client.query('ROLLBACK');
+          const error: any = new Error('Not authorized to transition this submission');
+          error.status = 403;
+          error.name = 'WorkflowError';
+          throw error;
+        }
+      }
 
       const { stage } = await transitionSubmission(client, sub as any, toStage, actorId, actorRole, comment);
       const outcome = stage.mapsToStatus;

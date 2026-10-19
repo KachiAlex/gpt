@@ -48,6 +48,7 @@ export interface UpdateUserInput {
   city?: string | null;
   state?: string | null;
   profileImage?: string | null;
+  preferences?: Record<string, unknown>;
 }
 
 export interface DbContractorProfile {

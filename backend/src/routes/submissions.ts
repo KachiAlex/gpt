@@ -202,7 +202,7 @@ router.post('/', verifyToken, async (req: Request, res: Response) => {
         message: `${contractor.companyName} submitted "${submission.title}" for ${project.name}`,
         data: { submissionId: submission.id, projectId: project.id },
       });
-      io?.emit('new-submission', {
+      io?.to('role-gov').emit('new-submission', {
         submissionId: submission.id,
         projectId: project.id,
         projectName: project.name,
@@ -270,21 +270,17 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
       });
     }
 
-    const allowedFields: (keyof UpdateSubmissionInput)[] = [
-      'type',
-      'title',
-      'description',
-      'progress',
-      'estimatedValue',
-      'priority',
-      'status',
-      'qualityScore',
-      'safetyCompliance',
-      'weatherImpact',
-      'dueDate',
-      'mediaCount',
-      'milestoneId',
+    // Status/stage changes must go through /transition or /review — the generic
+    // update path has no workflow, approval, or audit handling.
+    const CONTRACTOR_FIELDS: (keyof UpdateSubmissionInput)[] = [
+      'type', 'title', 'description', 'progress', 'estimatedValue',
+      'priority', 'weatherImpact', 'dueDate',
     ];
+    const REVIEWER_FIELDS: (keyof UpdateSubmissionInput)[] = [
+      ...CONTRACTOR_FIELDS,
+      'qualityScore', 'safetyCompliance', 'mediaCount', 'milestoneId',
+    ];
+    const allowedFields = isContractorOwner ? CONTRACTOR_FIELDS : REVIEWER_FIELDS;
 
     const updates: UpdateSubmissionInput = {};
     allowedFields.forEach((field) => {
@@ -347,12 +343,18 @@ router.put('/:id/review', verifyToken, requireMEOfficer, async (req: Request, re
       });
     }
 
+    if (submission.status === SubmissionStatus.APPROVED || submission.status === SubmissionStatus.REJECTED) {
+      return res.status(409).json({
+        success: false,
+        message: 'Submission is already in a terminal state',
+      });
+    }
+
     const allowedActions = [
       SubmissionStatus.APPROVED,
       SubmissionStatus.REJECTED,
       SubmissionStatus.FLAGGED,
       SubmissionStatus.REQUIRES_CLARIFICATION,
-      SubmissionStatus.PENDING,
     ];
 
     if (!allowedActions.includes(action)) {
