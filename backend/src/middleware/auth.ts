@@ -12,17 +12,14 @@ export interface AuthUser {
 
 /**
  * Extract the bearer token from the Authorization header.
- * Falls back to the `token` query parameter so browser-driven
- * downloads (window.open) can authenticate.
+ * No query-parameter fallback — a `?token=` JWT ends up in access logs,
+ * browser history, and Referer headers. Downloads authenticate via
+ * header through the frontend's blob-fetch helper instead.
  */
 export const getTokenFromRequest = (req: Request): string | null => {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     return authHeader.substring(7);
-  }
-  const queryToken = req.query.token;
-  if (typeof queryToken === 'string' && queryToken.length > 0) {
-    return queryToken;
   }
   return null;
 };

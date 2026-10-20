@@ -454,8 +454,8 @@ router.get('/submission/:submissionId', verifyToken, async (req: Request, res: R
 
 /**
  * GET /api/files/download/:id
- * Download a file. Accepts the JWT via Authorization header or ?token=
- * query parameter (for browser window.open downloads).
+ * Download a file. The JWT must arrive via the Authorization header —
+ * query-parameter tokens were removed so they can't leak into logs.
  */
 router.get('/download/:id', verifyToken, async (req: Request, res: Response) => {
   try {

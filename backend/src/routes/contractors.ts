@@ -42,9 +42,10 @@ const mapSubmissionRow = (row: any) => rowToCamelCase(row);
 
 /**
  * GET /api/contractors
- * Get contractors with filtering + pagination
+ * Get contractors with filtering + pagination. Government roles only —
+ * contractors and public users must not enumerate the whole registry.
  */
-router.get('/', verifyToken, async (req: Request, res: Response) => {
+router.get('/', verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER'), async (req: Request, res: Response) => {
   try {
     const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '20', 10), 1), 100);
@@ -157,6 +158,16 @@ router.get('/:id', verifyToken, async (req: Request, res: Response) => {
       return res.status(404).json({
         success: false,
         message: 'Contractor not found',
+      });
+    }
+
+    // Only government roles or the owning contractor may read a profile —
+    // it carries project lists, budgets, and submission history.
+    const GOV = new Set(['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER']);
+    if (!GOV.has(req.user!.role) && contractor.userId !== req.user!.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view this contractor profile',
       });
     }
 

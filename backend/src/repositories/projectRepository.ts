@@ -262,12 +262,16 @@ export const projectRepository = {
        UPDATE projects p
        SET progress = ROUND(ms.avg_progress)::int,
            status = CASE
-             WHEN ms.total > 0 AND ms.done = ms.total THEN 'COMPLETED'
+             -- Auto-complete only from a live state — a manual DELAYED,
+             -- ON_HOLD or CANCELLED must survive a milestone edit.
+             WHEN ms.total > 0 AND ms.done = ms.total
+                  AND p.status IN ('PLANNING', 'IN_PROGRESS') THEN 'COMPLETED'
              WHEN p.status = 'COMPLETED' AND ms.total > 0 THEN 'IN_PROGRESS'
              ELSE p.status
            END,
            actual_end_date = CASE
-             WHEN ms.total > 0 AND ms.done = ms.total THEN COALESCE(p.actual_end_date, NOW())
+             WHEN ms.total > 0 AND ms.done = ms.total
+                  AND p.status IN ('PLANNING', 'IN_PROGRESS') THEN COALESCE(p.actual_end_date, NOW())
              ELSE p.actual_end_date
            END,
            updated_at = NOW()

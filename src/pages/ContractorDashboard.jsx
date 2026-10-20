@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { projectAPI, submissionAPI } from '../services/api';
+import { projectAPI, submissionAPI, contractorAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { showSuccess, showError } from '../utils/toast';
 import { fmtNairaCompact } from '../utils/statusMap';
@@ -49,6 +49,7 @@ export default function ContractorDashboard() {
  const [activeTab, setActiveTab] = useState('overview');
  const [showNotifications, setShowNotifications] = useState(false);
  const [contractorProjects, setContractorProjects] = useState([]);
+ const [contractorProfile, setContractorProfile] = useState(null);
  const [loading, setLoading] = useState(true);
  const [recentActivities] = useState([]);
  const [notifications] = useState([]);
@@ -70,6 +71,12 @@ export default function ContractorDashboard() {
  const res = await projectAPI.getAll(user?.contractorId ? { contractorId: user.contractorId, limit: 100 } : { limit: 100 });
  if (res?.success && isMounted) {
  setContractorProjects(res.data?.projects || []);
+ }
+ if (user?.contractorId && isMounted) {
+ try {
+ const prof = await contractorAPI.getById(user.contractorId);
+ if (prof?.success && isMounted) setContractorProfile(prof.data?.contractor || null);
+ } catch { /* profile optional — header falls back to user name */ }
  }
  } catch (e) {
  console.error('Failed to load contractor projects:', e);
@@ -154,26 +161,34 @@ export default function ContractorDashboard() {
  <div className="mb-4 lg:mb-0">
  <div className="flex items-center space-x-3 mb-2">
  <div className="w-12 h-12 bg-soft rounded-full flex items-center justify-center">
- <span className="text-soft-fg font-bold text-lg">KI</span>
+ <span className="text-soft-fg font-bold text-lg">
+ {(contractorProfile?.companyName || user?.firstName || 'C').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+ </span>
  </div>
  <div>
- <h1 className="text-2xl font-bold text-ink">Kreatix Infrastructure Ltd</h1>
+ <h1 className="text-2xl font-bold text-ink">{contractorProfile?.companyName || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Contractor'}</h1>
  <p className="text-muted">Contractor Dashboard</p>
  </div>
  </div>
  <div className="flex items-center space-x-4 text-sm text-muted">
+ {contractorProfile?.rating != null && (
  <div className="flex items-center space-x-1">
  <Star className="h-4 w-4 text-yellow-500" />
- <span>4.5 Rating</span>
+ <span>{Number(contractorProfile.rating).toFixed(1)} Rating</span>
  </div>
+ )}
+ {contractorProfile?.isCertified && (
  <div className="flex items-center space-x-1">
  <Award className="h-4 w-4 text-green-500" />
  <span>Certified Contractor</span>
  </div>
+ )}
+ {contractorProfile?.yearsExperience != null && (
  <div className="flex items-center space-x-1">
  <Users className="h-4 w-4 text-blue-500" />
- <span>15+ Years Experience</span>
+ <span>{contractorProfile.yearsExperience}+ Years Experience</span>
  </div>
+ )}
  </div>
  </div>
  <div className="flex items-center space-x-4">
@@ -258,7 +273,7 @@ export default function ContractorDashboard() {
  <p className="text-2xl font-bold text-purple-700 dark:text-purple-400">{completedMilestones}/{totalMilestones}</p>
  <div className="flex items-center text-sm text-purple-700 dark:text-purple-400 mt-1">
  <CheckCircle className="h-4 w-4 mr-1" />
- <span>{Math.round((completedMilestones/totalMilestones)*100)}% complete</span>
+ <span>{totalMilestones > 0 ? Math.round((completedMilestones/totalMilestones)*100) : 0}% complete</span>
  </div>
  </div>
  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-950/50 rounded-lg flex items-center justify-center">
@@ -271,10 +286,12 @@ export default function ContractorDashboard() {
  <div className="flex items-center justify-between">
  <div>
  <p className="text-sm text-muted">Quality Score</p>
- <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">4.5/5</p>
+ <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">
+ {contractorProfile?.rating != null ? `${Number(contractorProfile.rating).toFixed(1)}/5` : '—'}
+ </p>
  <div className="flex items-center text-sm text-yellow-700 dark:text-yellow-400 mt-1">
  <Star className="h-4 w-4 mr-1" />
- <span>Excellent rating</span>
+ <span>{contractorProfile?.rating != null ? 'Verified rating' : 'Not yet rated'}</span>
  </div>
  </div>
  <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-950/50 rounded-lg flex items-center justify-center">
