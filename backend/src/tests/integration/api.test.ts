@@ -5,6 +5,7 @@ import userRepository from '../../repositories/userRepository';
 import { projectRepository } from '../../repositories/projectRepository';
 import { contractorRepository } from '../../repositories/contractorRepository';
 import * as database from '../../config/database';
+import { installAuthAwareQueryMock } from '../helpers/mockAuthQuery';
 
 jest.mock('../../repositories/userRepository', () => ({
   __esModule: true,
@@ -12,6 +13,7 @@ jest.mock('../../repositories/userRepository', () => ({
     findByEmail: jest.fn(),
     findById: jest.fn(),
     updateLastLogin: jest.fn(),
+    findContractorProfileId: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     updatePassword: jest.fn(),
@@ -68,7 +70,11 @@ describe('API Integration Tests', () => {
 
     mockedUserRepo.findByEmail.mockResolvedValue(mockUser as any);
     mockedUserRepo.findById.mockResolvedValue(mockUser as any);
+    mockedUserRepo.findContractorProfileId.mockResolvedValue(null as any);
     mockedUserRepo.updateLastLogin.mockResolvedValue(undefined as any);
+
+    // authenticate re-checks the account row via query() on every request
+    installAuthAwareQueryMock(queryMock, { is_active: true, role: 'GOVERNMENT_ADMIN' });
 
     // Login to get token
     const loginResponse = await request(app)
@@ -83,6 +89,7 @@ describe('API Integration Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    installAuthAwareQueryMock(queryMock, { is_active: true, role: 'GOVERNMENT_ADMIN' });
   });
 
   describe('Authentication Flow', () => {

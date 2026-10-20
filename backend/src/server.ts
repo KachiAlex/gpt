@@ -219,14 +219,17 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start server
+// Start server — only when run directly, not when imported by tests
+// (supertest spins up its own ephemeral listener on the app).
 const PORT = process.env.PORT || config.port;
-httpServer.listen(PORT, () => {
-  console.log(`🚀 GPT API Server running on port ${PORT}`);
-  console.log(`📱 Environment: ${config.nodeEnv}`);
-  console.log(`🗄️ Database: PostgreSQL`);
-  console.log(`🌐 CORS Origin: ${config.corsOrigin.join(', ')}`);
-});
+if (require.main === module) {
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 GPT API Server running on port ${PORT}`);
+    console.log(`📱 Environment: ${config.nodeEnv}`);
+    console.log(`🗄️ Database: PostgreSQL`);
+    console.log(`🌐 CORS Origin: ${config.corsOrigin.join(', ')}`);
+  });
+}
 
 export { io };
 export default app;

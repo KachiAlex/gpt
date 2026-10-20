@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { projectRepository } from '../../../repositories/projectRepository';
 import { contractorRepository } from '../../../repositories/contractorRepository';
 import * as database from '../../../config/database';
+import { installAuthAwareQueryMock } from '../../helpers/mockAuthQuery';
 
 jest.mock('../../../config', () => ({
   config: {
@@ -49,6 +50,8 @@ const signToken = (payload: any) => jwt.sign(payload, 'test-secret-key');
 describe('Projects Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // authenticate re-checks the account row on every request
+    installAuthAwareQueryMock(queryMock);
   });
 
   describe('GET /api/projects', () => {
@@ -99,7 +102,8 @@ describe('Projects Routes', () => {
   describe('GET /api/projects/stats', () => {
     it('returns project stats', async () => {
       const projects = [{ status: 'IN_PROGRESS', budget: 1, allocatedBudget: 1, spentBudget: 0, progress: 50 }];
-      queryMock.mockResolvedValue({ rows: projects });
+      // The auth lookup is the first query — supply project rows for the rest.
+      installAuthAwareQueryMock(queryMock, { is_active: true, role: 'GOVERNMENT_ADMIN' }, async () => ({ rows: projects }));
       const token = signToken({ userId: 'u1', role: 'GOVERNMENT_ADMIN' });
       const res = await request(app).get('/api/projects/stats').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);

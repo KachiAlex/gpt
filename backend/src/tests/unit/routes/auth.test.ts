@@ -4,6 +4,15 @@ import authRoutes from '../../../routes/auth';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import userRepository from '../../../repositories/userRepository';
+import * as database from '../../../config/database';
+import { installAuthAwareQueryMock } from '../../helpers/mockAuthQuery';
+
+jest.mock('../../../config/database', () => ({
+  query: jest.fn(),
+  rowToCamelCase: (row: any) => row,
+}));
+
+const queryMock = database.query as jest.Mock;
 
 jest.mock('../../../repositories/userRepository', () => ({
 	__esModule: true,
@@ -104,6 +113,8 @@ describe('Auth Routes', () => {
         'test-secret-key'
       );
 
+      // authenticate's account re-check reads via query(), not the repository
+      installAuthAwareQueryMock(queryMock, { is_active: true, role: 'CONTRACTOR' });
       mockedRepo.findById.mockResolvedValue(mockUser as any);
 
       const response = await request(app)
