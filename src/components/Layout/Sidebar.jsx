@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   FileText,
+  Users,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -41,7 +42,7 @@ const navFor = (role) => {
       { name: 'Settings', href: '/settings', icon: Settings },
     ];
   }
-  return [
+  const items = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Projects', href: '/projects', icon: Folder },
     { name: 'Contractors', href: '/contractors', icon: HardHat },
@@ -49,8 +50,12 @@ const navFor = (role) => {
     { name: 'Analytics', href: '/analytics', icon: BarChart3, feature: 'analytics' },
     { name: 'Map view', href: '/map', icon: MapIcon, feature: 'map' },
     { name: 'Progress', href: '/progress', icon: FileText, feature: 'progress' },
-    { name: 'Settings', href: '/settings', icon: Settings },
   ];
+  if (role === 'GOVERNMENT_ADMIN') {
+    items.push({ name: 'Users', href: '/settings?tab=users', icon: Users });
+  }
+  items.push({ name: 'Settings', href: '/settings', icon: Settings });
+  return items;
 };
 
 export default function Sidebar() {
@@ -62,7 +67,13 @@ export default function Sidebar() {
   const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`.toUpperCase() || 'U';
   const displayName = `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User';
   const items = navFor(user?.role).filter((i) => !i.feature || instance.features?.[i.feature] !== false);
-  const isActive = (href) => location.pathname === href || (href !== '/dashboard' && location.pathname.startsWith(href + '/'));
+  const isActive = (href) => {
+    const [path, qs] = href.split('?');
+    if (qs) return location.pathname === path && location.search.includes(qs);
+    // The plain Settings link yields to the ?tab= deep links
+    if (path === '/settings') return location.pathname === path && !location.search;
+    return location.pathname === path || (href !== '/dashboard' && location.pathname.startsWith(path + '/'));
+  };
 
   return (
     <>

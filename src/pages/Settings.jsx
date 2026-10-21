@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { 
+import { useSearchParams } from 'react-router-dom';
+import {
  User, 
  Bell, 
  Shield, 
@@ -57,7 +58,20 @@ export default function Settings() {
  const [auditLoading, setAuditLoading] = useState(false);
  const [configRequests, setConfigRequests] = useState([]);
  const fileInputRef = useRef(null);
- const [activeTab, setActiveTab] = useState('profile');
+ const [searchParams, setSearchParams] = useSearchParams();
+ const [activeTab, setActiveTabState] = useState('profile');
+
+ // Keep ?tab=<id> in the URL so admin links (e.g. sidebar "Users") can
+ // deep-link straight to a tab and the tab survives reload/share
+ const TAB_IDS = ['profile', 'notifications', 'security', 'appearance', 'workflow', 'users', 'audit', 'system'];
+ const setActiveTab = (id) => {
+   setActiveTabState(id);
+   setSearchParams((p) => { p.set('tab', id); return p; }, { replace: true });
+ };
+ useEffect(() => {
+   const t = searchParams.get('tab');
+   if (t && TAB_IDS.includes(t) && t !== activeTab) setActiveTabState(t);
+ }, [searchParams]);
  const [showPassword, setShowPassword] = useState(false);
  const [loading, setSaving] = useState(false);
  const [successMessage, setSuccessMessage] = useState('');
