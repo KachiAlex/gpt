@@ -13,13 +13,17 @@ import {
  User,
  Award,
  TrendingUp,
- AlertTriangle
+ AlertTriangle,
+ FolderPlus,
+ X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { useContractors } from '../contexts/ContractorsContext';
+import { useAuth } from '../contexts/AuthContext';
 import ContractorDetailModal from '../components/Contractors/ContractorDetailModal';
-import { contractorAPI } from '../services/api';
+import { contractorAPI, projectAPI } from '../services/api';
+import { showSuccess, showError } from '../utils/toast';
 
 const RISK_STYLES = {
  LOW: 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300',
@@ -38,6 +42,8 @@ const statusStyles = {
 
 export default function Contractors() {
  const { contractors, error: contractorsError, loading: contractorsLoading } = useContractors();
+ const { user } = useAuth();
+ const isAdmin = user?.role === 'GOVERNMENT_ADMIN';
  const [searchTerm, setSearchTerm] = useState('');
  const [specializationFilter, setSpecializationFilter] = useState('All Specializations');
  const [statusFilter, setStatusFilter] = useState('All Statuses');
@@ -45,6 +51,11 @@ export default function Contractors() {
  const [selectedContractor, setSelectedContractor] = useState(null);
  const [showDetailModal, setShowDetailModal] = useState(false);
  const [riskById, setRiskById] = useState({});
+ const [assignTarget, setAssignTarget] = useState(null);
+ const [assignProjects, setAssignProjects] = useState([]);
+ const [assignProjectId, setAssignProjectId] = useState('');
+ const [assignBusy, setAssignBusy] = useState(false);
+ const [assignLoading, setAssignLoading] = useState(false);
 
  useEffect(() => {
    contractorAPI.getRisk()
@@ -64,6 +75,47 @@ export default function Contractors() {
  const handleCloseModal = () => {
  setSelectedContractor(null);
  setShowDetailModal(false);
+ };
+
+ const openAssign = async (contractor) => {
+ setAssignTarget(contractor);
+ setAssignProjectId('');
+ setAssignLoading(true);
+ try {
+ const res = await projectAPI.getAll({ limit: 100 });
+ setAssignProjects(res?.data?.projects || []);
+ } catch {
+ setAssignProjects([]);
+ } finally {
+ setAssignLoading(false);
+ }
+ };
+
+ const closeAssign = () => {
+ setAssignTarget(null);
+ setAssignProjects([]);
+ setAssignProjectId('');
+ };
+
+ const submitAssign = async () => {
+ if (!assignProjectId || assignBusy) return;
+ setAssignBusy(true);
+ try {
+ const res = await contractorAPI.assignProject({
+ contractorId: assignTarget.id,
+ projectId: assignProjectId,
+ });
+ if (res?.success) {
+ showSuccess('Project assigned');
+ closeAssign();
+ } else {
+ showError(res?.message || 'Assignment failed');
+ }
+ } catch (e) {
+ showError(e.message || 'Assignment failed');
+ } finally {
+ setAssignBusy(false);
+ }
  };
 
  const filteredContractors = contractors.filter(contractor => {
@@ -302,7 +354,7 @@ export default function Contractors() {
  </div>
  </td>
  <td className="py-5 px-4">
- <div className="flex items-center space-x-3">
+ <div className="flex items-center space-x-1">
  <button
  onClick={() => handleViewDetails(contractor)}
  className="text-soft-fg hover:text-soft-fg p-2 rounded-lg hover:bg-soft transition-colors"
@@ -310,6 +362,15 @@ export default function Contractors() {
  >
  <Eye className="h-5 w-5" />
  </button>
+ {isAdmin && (
+ <button
+ onClick={() => openAssign(contractor)}
+ className="text-soft-fg hover:text-soft-fg p-2 rounded-lg hover:bg-soft transition-colors"
+ title="Assign to project"
+ >
+ <FolderPlus className="h-5 w-5" />
+ </button>
+ )}
  </div>
  </td>
  </tr>
@@ -364,7 +425,16 @@ export default function Contractors() {
  </div>
  </div>
  
- <div className="flex justify-end">
+ <div className="flex justify-end items-center space-x-3">
+ {isAdmin && (
+ <button
+ onClick={() => openAssign(contractor)}
+ className="text-soft-fg hover:text-soft-fg text-sm font-medium flex items-center"
+ >
+ <FolderPlus className="h-4 w-4 mr-1" />
+ Assign
+ </button>
+ )}
  <button
  onClick={() => handleViewDetails(contractor)}
  className="text-soft-fg hover:text-soft-fg text-sm font-medium flex items-center"
@@ -398,6 +468,52 @@ export default function Contractors() {
  isOpen={showDetailModal}
  onClose={handleCloseModal}
  />
+
+ {/* Assign project modal */}
+ {assignTarget && (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeAssign}>
+ <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+ <div className="flex items-center justify-between mb-4">
+ <h3 className="text-lg font-semibold text-ink">Assign project</h3>
+ <button type="button" onClick={closeAssign} className="p-1 hover:bg-hoverbg rounded-lg">
+ <X className="h-5 w-5 text-muted" />
+ </button>
+ </div>
+ <p className="text-sm text-muted mb-4">
+ Assign <span className="font-semibold text-ink">{assignTarget.name}</span> to a project. They'll see it on their dashboard immediately.
+ </p>
+ {assignLoading ? (
+ <p className="text-sm text-muted py-4 text-center">Loading projects…</p>
+ ) : assignProjects.length === 0 ? (
+ <p className="text-sm text-muted py-4 text-center">No projects available.</p>
+ ) : (
+ <select
+ value={assignProjectId}
+ onChange={(e) => setAssignProjectId(e.target.value)}
+ className="w-full border border-border rounded-lg px-3 py-2 bg-bg text-ink mb-4"
+ >
+ <option value="">Select a project…</option>
+ {assignProjects.map((p) => (
+ <option key={p.id} value={p.id}>
+ {p.name}{p.contractor ? ` (currently: ${p.contractor})` : ''}
+ </option>
+ ))}
+ </select>
+ )}
+ <div className="flex justify-end gap-2">
+ <button type="button" onClick={closeAssign} className="btn-secondary">Cancel</button>
+ <button
+ type="button"
+ onClick={submitAssign}
+ disabled={!assignProjectId || assignBusy}
+ className="btn-primary disabled:opacity-50"
+ >
+ {assignBusy ? 'Assigning…' : 'Assign'}
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
  </div>
  );
 }
