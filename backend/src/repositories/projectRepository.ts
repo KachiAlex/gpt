@@ -18,6 +18,13 @@ const projectColumns = `
   weather_delay, safety_incidents, created_at, updated_at
 `;
 
+// projectColumns qualified with the `p` table alias — required wherever the
+// query joins contractor_profiles (both tables have `id`, `created_at`, …)
+const pColumns = projectColumns
+  .split(',')
+  .map((c) => `p.${c.trim()}`)
+  .join(', ');
+
 const milestoneColumns = `
   id, project_id, name, description, due_date, completed_date, status,
   progress, budget, order_index, created_at, updated_at
@@ -158,7 +165,7 @@ export const projectRepository = {
 
     const dataParams = [...params, limit, offset];
     const result = await query(
-      `SELECT ${projectColumns}, cp.company_name AS contractor_name
+      `SELECT ${pColumns}, cp.company_name AS contractor_name
        FROM projects p
        LEFT JOIN contractor_profiles cp ON cp.id = p.contractor_id
        ${whereClause}
