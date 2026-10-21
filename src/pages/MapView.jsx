@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import {
  Search,
  Filter,
@@ -267,28 +270,32 @@ export default function MapView() {
      attribution={TILE_LAYERS[mapView]?.attribution || TILE_LAYERS.street.attribution}
    />
    <FitBounds points={filteredProjects.map((p) => p.coords).filter(Boolean)} />
-   {!loading && !error && filteredProjects.filter((p) => p.coords).map((project) => (
-     <CircleMarker
-       key={project.id}
-       center={[project.coords.lat, project.coords.lng]}
-       radius={9}
-       pathOptions={{
-         color: '#ffffff',
-         weight: 2,
-         fillColor: project.statusColor,
-         fillOpacity: 0.9,
-       }}
-       eventHandlers={{ click: () => setSelectedProject(project) }}
-     >
-       <Popup>
-         <div className="text-sm">
-           <div className="font-semibold">{project.name}</div>
-           <div>{project.statusLabel} · {project.progress}%</div>
-           <div>{project.lga}</div>
-         </div>
-       </Popup>
-     </CircleMarker>
-   ))}
+   {!loading && !error && (
+     <MarkerClusterGroup chunkedLoading spiderfyOnMaxZoom showCoverageOnHover={false}>
+       {filteredProjects.filter((p) => p.coords).map((project) => (
+         <CircleMarker
+           key={project.id}
+           center={[project.coords.lat, project.coords.lng]}
+           radius={9}
+           pathOptions={{
+             color: '#ffffff',
+             weight: 2,
+             fillColor: project.statusColor,
+             fillOpacity: 0.9,
+           }}
+           eventHandlers={{ click: () => setSelectedProject(project) }}
+         >
+           <Popup>
+             <div className="text-sm">
+               <div className="font-semibold">{project.name}</div>
+               <div>{project.statusLabel} · {project.progress}%</div>
+               <div>{project.lga}</div>
+             </div>
+           </Popup>
+         </CircleMarker>
+       ))}
+     </MarkerClusterGroup>
+   )}
  </MapContainer>
 
  {loading && (
