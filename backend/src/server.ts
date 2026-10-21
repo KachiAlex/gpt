@@ -10,6 +10,16 @@ import path from 'path';
 
 import { config } from './config';
 import pool from './config/database';
+import * as Sentry from '@sentry/node';
+
+// Error monitoring — inert unless SENTRY_DSN is configured for the deployment
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: config.nodeEnv,
+    tracesSampleRate: 0.1,
+  });
+}
 
 const app = express();
 const httpServer = createServer(app);
@@ -166,6 +176,11 @@ app.use((_req: express.Request, res: express.Response) => {
   });
 });
 
+// Sentry's express error hook must precede the app's own error handler
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
+
 // Error handling middleware
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err);
@@ -194,11 +209,14 @@ io.use((socket, next) => {
     }
     // Same invariant as authenticate(): a deactivated/demoted account must
     // lose socket access immediately, not keep role-gov for the token life.
-    pool.query('SELECT is_active, role FROM users WHERE id = $1', [payload.userId])
+    pool.query('SELECT is_active, role, token_version FROM users WHERE id = $1', [payload.userId])
       .then((result) => {
         const user = result.rows[0];
         if (!user || user.is_active === false) {
           return next(new Error('Account is not active'));
+        }
+        if (((payload as { tv?: number }).tv ?? 0) !== (user.token_version ?? 0)) {
+          return next(new Error('Session has been revoked'));
         }
         socket.data.user = { userId: payload.userId, role: user.role };
         return next();

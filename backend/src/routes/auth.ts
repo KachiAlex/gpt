@@ -12,6 +12,7 @@ import userRepository from '../repositories/userRepository';
 import contractorRepository from '../repositories/contractorRepository';
 import inviteRepository from '../repositories/inviteRepository';
 import { hashPassword, verifyPassword } from '../utils/password';
+import { passwordPolicyError } from '../utils/passwordPolicy';
 import { UserRole } from '../types/domain';
 import { DbUser } from '../types/models';
 
@@ -39,6 +40,7 @@ const issueToken = (user: DbUser, contractorId: string | null) =>
       userId: user.id,
       email: user.email,
       role: user.role,
+      tv: user.tokenVersion ?? 0,
       ...(contractorId ? { contractorId } : {}),
     },
     config.jwtSecret,
@@ -124,6 +126,22 @@ router.post('/login', async (req: Request, res: Response) => {
         success: true,
         message: 'Two-factor authentication required',
         data: { mfaRequired: true, mfaToken }
+      });
+    }
+
+    // Policy: admins on this deployment must enroll TOTP. They get a scoped
+    // setup token (good for /mfa/setup + /mfa/enable only) instead of a
+    // session until enrollment completes.
+    if (config.adminMfaRequired && user.role === 'GOVERNMENT_ADMIN') {
+      const mfaSetupToken = jwt.sign(
+        { userId: user.id, purpose: 'mfa_setup' },
+        config.jwtSecret,
+        { expiresIn: '15m' }
+      );
+      return res.json({
+        success: true,
+        message: 'Two-factor authentication setup required',
+        data: { mfaSetupRequired: true, mfaSetupToken }
       });
     }
 
@@ -213,11 +231,43 @@ router.post('/mfa-verify', async (req: Request, res: Response) => {
 });
 
 /**
+ * Accepts a normal session JWT or a `purpose: 'mfa_setup'` enrollment token
+ * (issued at login when adminMfaRequired forces an admin to enroll first).
+ */
+const authenticateOrMfaSetup = (req: Request, res: Response, next: () => void): void => {
+  const token = getTokenFromRequest(req);
+  if (!token) {
+    res.status(401).json({ success: false, message: 'Authorization token required' });
+    return;
+  }
+  try {
+    const payload = jwt.verify(token, config.jwtSecret) as { userId?: string; purpose?: string };
+    if (payload.purpose === 'mfa_setup' && payload.userId) {
+      userRepository.findById(payload.userId)
+        .then((user) => {
+          if (!user || user.isActive === false) {
+            res.status(401).json({ success: false, message: 'Account is not active' });
+            return;
+          }
+          req.user = { userId: user.id, email: user.email, role: user.role } as any;
+          next();
+        })
+        .catch(() => res.status(500).json({ success: false, message: 'Authentication failed' }));
+      return;
+    }
+    // Fall back to the normal session path
+    authenticate(req, res, next);
+  } catch {
+    res.status(401).json({ success: false, message: 'Invalid token' });
+  }
+};
+
+/**
  * POST /api/auth/mfa/setup
  * Generate a pending TOTP secret + QR for the authenticated user.
  * Nothing is enforced until /mfa/enable verifies a code.
  */
-router.post('/mfa/setup', authenticate, async (req: Request, res: Response) => {
+router.post('/mfa/setup', authenticateOrMfaSetup, async (req: Request, res: Response) => {
   try {
     const user = await userRepository.findById(req.user!.userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
@@ -246,7 +296,7 @@ router.post('/mfa/setup', authenticate, async (req: Request, res: Response) => {
  * POST /api/auth/mfa/enable
  * Verify a code against the pending secret to activate TOTP.
  */
-router.post('/mfa/enable', authenticate, async (req: Request, res: Response) => {
+router.post('/mfa/enable', authenticateOrMfaSetup, async (req: Request, res: Response) => {
   try {
     const { code, password } = req.body;
     const user = await userRepository.findById(req.user!.userId);
@@ -351,11 +401,9 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    if (typeof password !== 'string' || password.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 8 characters'
-      });
+    const policyError = passwordPolicyError(password);
+    if (policyError) {
+      return res.status(400).json({ success: false, message: policyError });
     }
 
     const requestedRole = String(role).toUpperCase();
@@ -483,11 +531,9 @@ router.put('/change-password', authenticate, async (req: Request, res: Response)
       });
     }
 
-    if (typeof newPassword !== 'string' || newPassword.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: 'New password must be at least 8 characters'
-      });
+    const policyError = passwordPolicyError(newPassword);
+    if (policyError) {
+      return res.status(400).json({ success: false, message: `New password: ${policyError}` });
     }
 
     const user = await userRepository.findById(req.user!.userId);
@@ -595,8 +641,9 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     if (!token || typeof token !== 'string') {
       return res.status(400).json({ success: false, message: 'Reset token is required' });
     }
-    if (typeof newPassword !== 'string' || newPassword.length < 8) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    const policyError = passwordPolicyError(newPassword);
+    if (policyError) {
+      return res.status(400).json({ success: false, message: policyError });
     }
 
     // Atomically consume the token — a single UPDATE ... RETURNING means a
@@ -627,13 +674,21 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
 /**
  * POST /api/auth/logout
- * Logout (client-side token removal)
+ * Server-side logout: bumps token_version so the caller's JWT (and every
+ * other session for the account) is dead immediately, not just deleted
+ * from the client's localStorage.
  */
-router.post('/logout', (_req: Request, res: Response) => {
-  return res.json({
-    success: true,
-    message: 'Logged out successfully'
-  });
+router.post('/logout', authenticate, async (req: Request, res: Response) => {
+  try {
+    await userRepository.bumpTokenVersion(req.user!.userId);
+    return res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({ success: false, message: 'Logout failed' });
+  }
 });
 
 /**
@@ -688,8 +743,9 @@ router.post('/register-invite', async (req: Request, res: Response) => {
         message: 'token, email, password, and firstName are required',
       });
     }
-    if (typeof password !== 'string' || password.length < 8) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    const policyError = passwordPolicyError(password);
+    if (policyError) {
+      return res.status(400).json({ success: false, message: policyError });
     }
 
     const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');

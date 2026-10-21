@@ -512,4 +512,51 @@ router.get('/projects-by-lga', async (_req: Request, res: Response) => {
   }
 });
 
+const csvCell = (value: unknown): string => {
+  const s = value === null || value === undefined ? '' : String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+/**
+ * GET /api/public/projects.csv
+ * Open-data export: every published project as CSV for journalists, civil
+ * society, and researchers. Same visibility rule as the JSON endpoints —
+ * is_public rows only, no auth required.
+ */
+router.get('/projects.csv', async (_req: Request, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT p.name, p.category, p.status, p.progress, p.budget,
+              p.financial_status, p.start_date, p.expected_completion,
+              p.lga, p.description, cp.company_name AS contractor_name
+       FROM projects p
+       LEFT JOIN contractor_profiles cp ON p.contractor_id = cp.id
+       WHERE p.is_public = TRUE
+       ORDER BY p.created_at DESC`
+    );
+
+    const header = 'name,category,status,progress_percent,budget,financial_status,start_date,expected_completion,lga,contractor,description';
+    const lines = result.rows.map((r: any) => [
+      r.name,
+      r.category,
+      r.status,
+      r.progress,
+      r.budget,
+      r.financial_status,
+      r.start_date ? new Date(r.start_date).toISOString().slice(0, 10) : '',
+      r.expected_completion ? new Date(r.expected_completion).toISOString().slice(0, 10) : '',
+      Array.isArray(r.lga) ? r.lga.join('; ') : (r.lga ?? ''),
+      r.contractor_name,
+      r.description,
+    ].map(csvCell).join(','));
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="public-projects.csv"');
+    return res.send([header, ...lines].join('\r\n'));
+  } catch (error: any) {
+    console.error('Public CSV export error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to export projects' });
+  }
+});
+
 export default router;

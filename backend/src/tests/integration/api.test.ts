@@ -55,7 +55,7 @@ describe('API Integration Tests', () => {
   beforeAll(async () => {
     // Create a test user
     userId = 'test-user-123';
-    const hashedPassword = await bcrypt.hash('password123', 10);
+    const hashedPassword = await bcrypt.hash('Str0ngPassw0rd', 10);
     
     const mockUser = {
       id: userId,
@@ -82,7 +82,7 @@ describe('API Integration Tests', () => {
       .post('/api/auth/login')
       .send({
         email: 'test@example.com',
-        password: 'password123'
+        password: 'Str0ngPassw0rd'
       });
 
     authToken = loginResponse.body.data.token;
@@ -100,7 +100,7 @@ describe('API Integration Tests', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'password123'
+          password: 'Str0ngPassw0rd'
         });
 
       expect(loginResponse.status).toBe(200);

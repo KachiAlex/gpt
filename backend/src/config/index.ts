@@ -13,6 +13,9 @@ export const config = {
   // JWT - no hardcoded fallback; a random per-boot secret is used in dev only
   jwtSecret: process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  // When true, GOVERNMENT_ADMIN logins without TOTP get a scoped setup token
+  // and must complete MFA enrollment before receiving a session.
+  adminMfaRequired: process.env.ADMIN_MFA_REQUIRED === 'true',
   
   // File Upload
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10), // 10MB default

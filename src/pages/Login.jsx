@@ -48,6 +48,11 @@ export default function Login() {
         setMfa({ mfaToken: result.mfaToken });
         return;
       }
+      if (result.mfaSetupRequired) {
+        sessionStorage.setItem('gpt_mfa_setup', result.mfaSetupToken);
+        navigate('/mfa-setup');
+        return;
+      }
       completeLogin(result);
     } catch {
       setError('An error occurred during sign in. Please try again.');

@@ -66,7 +66,7 @@ describe('Auth Routes', () => {
       const mockUser = {
         id: 'user-123',
         email: 'test@example.com',
-        password: await bcrypt.hash('password123', 10),
+        password: await bcrypt.hash('Str0ngPassw0rd', 10),
         firstName: 'John',
         lastName: 'Doe',
         role: 'CONTRACTOR',
@@ -82,7 +82,7 @@ describe('Auth Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'password123'
+          password: 'Str0ngPassw0rd'
         });
 
       expect(response.status).toBe(200);
@@ -183,7 +183,7 @@ describe('Auth Routes', () => {
         .post('/api/auth/register')
         .send({
           email: 'newuser@example.com',
-          password: 'password123',
+          password: 'Str0ngPassw0rd',
           firstName: 'Jane',
           lastName: 'Smith',
           role: 'CONTRACTOR'
@@ -201,7 +201,7 @@ describe('Auth Routes', () => {
         .post('/api/auth/register')
         .send({
           email: 'existing@example.com',
-          password: 'password123',
+          password: 'Str0ngPassw0rd',
           firstName: 'Jane',
           lastName: 'Smith',
           role: 'CONTRACTOR'
@@ -217,7 +217,7 @@ describe('Auth Routes', () => {
         .post('/api/auth/register')
         .send({
           email: 'test@example.com',
-          password: 'password123'
+          password: 'Str0ngPassw0rd'
           // missing firstName, role (lastName is optional)
         });
 
@@ -241,7 +241,7 @@ describe('Auth Routes', () => {
         .post('/api/auth/register')
         .send({
           email: 'oneword@example.com',
-          password: 'password123',
+          password: 'Str0ngPassw0rd',
           firstName: 'Madonna',
           lastName: '',
           role: 'PUBLIC'
@@ -308,7 +308,7 @@ describe('Auth Routes', () => {
 
       const response = await request(app)
         .post('/api/auth/register-invite')
-        .send({ token: 'tok', email: 'new@x.com', password: 'password123', firstName: 'N' });
+        .send({ token: 'tok', email: 'new@x.com', password: 'Str0ngPassw0rd', firstName: 'N' });
 
       expect(response.status).toBe(201);
       expect(mockedRepo.create).toHaveBeenCalledWith(
@@ -322,7 +322,7 @@ describe('Auth Routes', () => {
 
       const response = await request(app)
         .post('/api/auth/register-invite')
-        .send({ token: 'tok', email: 'other@x.com', password: 'password123', firstName: 'N' });
+        .send({ token: 'tok', email: 'other@x.com', password: 'Str0ngPassw0rd', firstName: 'N' });
 
       expect(response.status).toBe(400);
       expect(mockedRepo.create).not.toHaveBeenCalled();
@@ -335,7 +335,7 @@ describe('Auth Routes', () => {
 
       const response = await request(app)
         .post('/api/auth/register-invite')
-        .send({ token: 'tok', email: 'new@x.com', password: 'password123', firstName: 'N' });
+        .send({ token: 'tok', email: 'new@x.com', password: 'Str0ngPassw0rd', firstName: 'N' });
 
       expect(response.status).toBe(404);
       expect(mockedRepo.create).not.toHaveBeenCalled();
@@ -347,7 +347,7 @@ describe('Auth Routes', () => {
 
       const response = await request(app)
         .post('/api/auth/register-invite')
-        .send({ token: 'tok', email: 'c@x.com', password: 'password123', firstName: 'N' });
+        .send({ token: 'tok', email: 'c@x.com', password: 'Str0ngPassw0rd', firstName: 'N' });
 
       expect(response.status).toBe(400);
       expect(response.body.message).toContain('companyName');

@@ -15,6 +15,7 @@ const Login = lazy(() => import('./pages/Login'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const InviteAccept = lazy(() => import('./pages/InviteAccept'));
+const MfaSetup = lazy(() => import('./pages/MfaSetup'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Projects = lazy(() => import('./pages/Projects'));
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
@@ -67,7 +68,7 @@ function AppContent() {
 
   // Standalone pages render without the app shell (sidebar/header)
   const isStandaloneRoute =
-    ['/', '/public', '/login', '/forgot-password', '/reset-password'].includes(location.pathname)
+    ['/', '/public', '/login', '/forgot-password', '/reset-password', '/mfa-setup'].includes(location.pathname)
     || location.pathname.startsWith('/invite/');
 
   if (isStandaloneRoute) {
@@ -80,6 +81,7 @@ function AppContent() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/invite/:token" element={<InviteAccept />} />
+        <Route path="/mfa-setup" element={<MfaSetup />} />
       </Routes>
       </Suspense>
     );

@@ -50,6 +50,15 @@ for dir in $(instances); do
 
   # --- migrations (ledger-tracked, applied in filename order, transactional) ---
   ledger="$dir/.migrations-applied"; touch "$ledger"
+  # Ensure the DB-side history table exists before mirroring into it
+  docker exec -i "$PREFIX-db" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+    "CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())" >/dev/null 2>&1 || true
+  # Backfill: any migration the ledger says is applied but the DB doesn't know
+  # about (pre-dating the table) gets a history row so the DB is self-describing
+  while IFS= read -r applied; do
+    [ -n "$applied" ] && docker exec -i "$PREFIX-db" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+      "INSERT INTO schema_migrations (name) VALUES ('$applied') ON CONFLICT DO NOTHING" >/dev/null 2>&1 || true
+  done < "$ledger"
   mfail=0
   for m in "$dir"/backend/migrations/*.sql; do
     [ -e "$m" ] || continue
@@ -58,6 +67,8 @@ for dir in $(instances); do
     echo "    migrating: $name"
     if docker exec -i "$PREFIX-db" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 --single-transaction < "$m" >/dev/null 2>&1; then
       echo "$name" >> "$ledger"
+      docker exec -i "$PREFIX-db" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+        "INSERT INTO schema_migrations (name) VALUES ('$name') ON CONFLICT DO NOTHING" >/dev/null 2>&1 || true
     else
       echo "    FAIL: migration $name"; mfail=1; break
     fi

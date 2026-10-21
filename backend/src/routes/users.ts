@@ -8,6 +8,7 @@ import { notificationRepository } from '../repositories/notificationRepository';
 import { documentRepository } from '../repositories/documentRepository';
 import { inviteRepository } from '../repositories/inviteRepository';
 import { fileUploadService } from '../services/fileUploadService';
+import { passwordPolicyError } from '../utils/passwordPolicy';
 import { getFrontendUrl } from '../services/emailService';
 import { DocumentCategory } from '../types/domain';
 import { query } from '../config/database';
@@ -145,8 +146,9 @@ router.post('/:id/reset-password', authenticate, requireRoles('GOVERNMENT_ADMIN'
     if (!target) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    if (typeof newPassword !== 'string' || newPassword.length < 8) {
-      return res.status(400).json({ success: false, message: 'newPassword must be at least 8 characters' });
+    const policyError = passwordPolicyError(newPassword);
+    if (policyError) {
+      return res.status(400).json({ success: false, message: policyError });
     }
 
     await userRepository.updatePassword(id, await hashPassword(newPassword));

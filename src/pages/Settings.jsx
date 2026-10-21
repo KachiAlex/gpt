@@ -43,7 +43,7 @@ import { roleLabel } from '../utils/statusMap';
 const TAB_IDS = ['profile', 'notifications', 'security', 'appearance', 'workflow', 'users', 'audit', 'system'];
 
 export default function Settings() {
- const { user, updateUser } = useAuth();
+ const { user, updateUser, signOut } = useAuth();
  const { stages: workflowStages, refreshWorkflow } = useInstance();
  const { theme, setTheme } = useTheme();
  const isAdmin = user?.role === 'GOVERNMENT_ADMIN';
@@ -225,7 +225,7 @@ export default function Settings() {
  };
 
  const handleUserReset = async (target) => {
-   const newPassword = window.prompt(`Set a new password for ${target.email} (min 8 characters):`);
+   const newPassword = window.prompt(`Set a new password for ${target.email} (12+ characters, mixed case + number):`);
    if (newPassword === null) return;
    try {
      const res = await userAPI.resetPassword(target.id, newPassword);
@@ -425,8 +425,8 @@ export default function Settings() {
  setPasswordMessage('Enter your current password and a new password.');
  return;
  }
- if (passwordForm.newPassword.length < 8) {
- setPasswordMessage('New password must be at least 8 characters.');
+ if (passwordForm.newPassword.length < 12) {
+ setPasswordMessage('New password must be at least 12 characters.');
  return;
  }
  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -440,8 +440,11 @@ export default function Settings() {
  newPassword: passwordForm.newPassword,
  });
  if (res?.success) {
- setPasswordMessage('Password changed successfully.');
+ // The backend revokes every session on password change — take the user
+ // straight to login instead of leaving them to hit a surprise 401.
+ setPasswordMessage('Password changed — signing you out. Log in again with your new password.');
  setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+ setTimeout(() => signOut(), 2500);
  } else {
  setPasswordMessage(res?.message || 'Failed to change password.');
  }

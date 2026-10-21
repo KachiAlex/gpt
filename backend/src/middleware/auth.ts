@@ -8,6 +8,7 @@ export interface AuthUser {
   email: string;
   role: string;
   contractorId?: string;
+  tv?: number;
 }
 
 /**
@@ -45,11 +46,18 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
 
     // Re-check the account against the DB so deactivated/demoted users lose
     // access immediately instead of living out the token lifetime.
-    query('SELECT is_active, role FROM users WHERE id = $1', [payload.userId])
+    query('SELECT is_active, role, token_version FROM users WHERE id = $1', [payload.userId])
       .then((result) => {
         const user = result.rows[0];
         if (!user || user.is_active === false) {
           res.status(401).json({ success: false, message: 'Account is not active' });
+          return;
+        }
+        // Logout/password-change bumps token_version — tokens minted before
+        // the bump are dead even though they haven't hit their exp yet.
+        // Legacy tokens without `tv` count as version 0.
+        if ((payload.tv ?? 0) !== (user.token_version ?? 0)) {
+          res.status(401).json({ success: false, message: 'Session has been revoked' });
           return;
         }
         req.user = { ...payload, role: user.role };

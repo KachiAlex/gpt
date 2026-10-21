@@ -38,8 +38,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # --omit=dev: audit only what ships to production. Dev-only advisories
+      # (e.g. braces via jest/nodemon — no patched release exists) would
+      # otherwise block CI without affecting the runtime.
       - name: Audit backend deps
         working-directory: backend
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=high --omit=dev
       - name: Audit frontend deps
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=high --omit=dev

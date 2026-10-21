@@ -18,6 +18,7 @@ export interface DbUser {
   lastLogin?: Date | null;
   totpSecret?: string | null;
   totpEnabled?: boolean;
+  tokenVersion?: number;
   createdAt: Date;
   updatedAt: Date;
 }

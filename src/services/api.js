@@ -48,7 +48,9 @@ const apiFetch = async (endpoint, options = {}) => {
 
   // No special headers needed for Render API - just use JWT token
 
-  if (token) {
+  // A caller-supplied Authorization header (e.g. the scoped mfa_setup token
+  // on the forced-enrollment page) wins over the stored session token.
+  if (token && !headers['Authorization']) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
@@ -279,12 +281,16 @@ export const authAPI = {
       body: JSON.stringify({ mfaToken, code }),
     }),
 
-  mfaSetup: () =>
-    apiFetch('/auth/mfa/setup', { method: 'POST' }),
+  mfaSetup: (token) =>
+    apiFetch('/auth/mfa/setup', {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
 
-  mfaEnable: (code, password) =>
+  mfaEnable: (code, password, token) =>
     apiFetch('/auth/mfa/enable', {
       method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: JSON.stringify({ code, password }),
     }),
 

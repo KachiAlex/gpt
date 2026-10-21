@@ -87,6 +87,11 @@ export const AuthProvider = ({ children }) => {
           return { success: true, mfaRequired: true, mfaToken: authData.mfaToken };
         }
 
+        // Deployments can force admins to enroll TOTP before first session
+        if (authData.mfaSetupRequired) {
+          return { success: true, mfaSetupRequired: true, mfaSetupToken: authData.mfaSetupToken };
+        }
+
         finishSignIn(authData);
         return { success: true, data: authData };
       } else {

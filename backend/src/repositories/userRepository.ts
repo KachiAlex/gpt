@@ -4,7 +4,8 @@ import { CreateUserInput, DbUser, UpdateUserInput, UserListItem } from '../types
 const baseColumns = `
   id, email, password, first_name, last_name, phone, role, is_active,
   profile_image, department, job_title, address, city, state,
-  last_login, totp_secret, totp_enabled, preferences, created_at, updated_at
+  last_login, totp_secret, totp_enabled, preferences, token_version,
+  created_at, updated_at
 `;
 
 const mapUser = (row: any): DbUser => {
@@ -93,7 +94,18 @@ export const userRepository = {
   },
 
   async updatePassword(id: string, passwordHash: string): Promise<void> {
-    await query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [passwordHash, id]);
+    // A password change must kill every session issued against the old one.
+    await query(
+      'UPDATE users SET password = $1, token_version = token_version + 1, updated_at = NOW() WHERE id = $2',
+      [passwordHash, id]
+    );
+  },
+
+  /**
+   * Increment token_version — immediately revokes all JWTs issued so far.
+   */
+  async bumpTokenVersion(id: string): Promise<void> {
+    await query('UPDATE users SET token_version = token_version + 1, updated_at = NOW() WHERE id = $1', [id]);
   },
 
   /**
