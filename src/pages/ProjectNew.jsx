@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
  ArrowLeft,
  Save,
@@ -52,6 +52,9 @@ export default function ProjectNew() {
  const [errors, setErrors] = useState({});
  const [loading, setLoading] = useState(false);
  const [lgaInput, setLgaInput] = useState('');
+ // In-flight guard — `loading` state alone can't block clicks that land
+ // before React re-renders the disabled button
+ const submittingRef = useRef(false);
 
  const steps = [
  { id: 1, name: 'Basic Information', icon: FileText },
@@ -160,8 +163,10 @@ export default function ProjectNew() {
  };
 
  const handleSubmit = async () => {
+ if (submittingRef.current) return;
  if (!validateStep(currentStep)) return;
 
+ submittingRef.current = true;
  setLoading(true);
  try {
  // Prepare submission data
@@ -213,6 +218,7 @@ export default function ProjectNew() {
  console.error('Error creating project:', error);
  showError(error.message || 'Failed to create project. Please try again.');
  } finally {
+ submittingRef.current = false;
  setLoading(false);
  }
  };
@@ -769,9 +775,10 @@ export default function ProjectNew() {
  
  <button
  onClick={currentStep === steps.length ? handleSubmit : nextStep}
- className="btn-primary"
+ disabled={loading}
+ className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
  >
- {currentStep === steps.length ? 'Create Project' : 'Next'}
+ {loading ? 'Creating...' : currentStep === steps.length ? 'Create Project' : 'Next'}
  </button>
  </div>
  </div>

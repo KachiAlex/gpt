@@ -28,6 +28,7 @@ jest.mock('../../repositories/projectRepository', () => ({
     getRecentSubmissions: jest.fn(),
     getContractorSummary: jest.fn(),
     create: jest.fn(),
+    findRecentDuplicate: jest.fn(),
   }
 }));
 

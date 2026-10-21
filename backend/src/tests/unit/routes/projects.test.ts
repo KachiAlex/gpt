@@ -23,6 +23,7 @@ jest.mock('../../../repositories/projectRepository', () => ({
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    findRecentDuplicate: jest.fn(),
   }
 }));
 
@@ -96,6 +97,24 @@ describe('Projects Routes', () => {
         });
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
+    });
+
+    it('returns the existing row instead of inserting a duplicate (double-submit)', async () => {
+      const existing = { id: 'p-dup', name: 'N' };
+      mockedProjectRepo.findRecentDuplicate.mockResolvedValue(existing as any);
+
+      const token = signToken({ userId: 'u1', role: 'GOVERNMENT_ADMIN' });
+      const payload = {
+        name: 'N', description: 'D', category: 'HEALTHCARE', lga: ['A'], budget: 1, fundingSource: 'X', startDate: '2024-01-01', expectedEndDate: '2024-12-31'
+      };
+      const res = await request(app)
+        .post('/api/projects')
+        .set('Authorization', `Bearer ${token}`)
+        .send(payload);
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.project.id).toBe('p-dup');
+      expect(mockedProjectRepo.create).not.toHaveBeenCalled();
     });
   });
 

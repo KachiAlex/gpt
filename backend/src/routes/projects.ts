@@ -255,6 +255,17 @@ router.post('/', verifyToken, requireAdmin, async (req: Request, res: Response) 
       return res.status(400).json({ success: false, message: 'budget must be a number' });
     }
 
+    // Idempotent create: if the identical submission already landed within
+    // the window, return it instead of inserting a duplicate row
+    const existing = await projectRepository.findRecentDuplicate(payload.name, payload.budget);
+    if (existing) {
+      return res.status(201).json({
+        success: true,
+        message: 'Project created successfully',
+        data: { project: existing },
+      });
+    }
+
     const project = await projectRepository.create(payload);
     await audit(auditFromReq(req, 'project.create', 'project', project.id, { name: project.name, budget: project.budget }));
 

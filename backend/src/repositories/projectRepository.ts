@@ -373,6 +373,19 @@ export const projectRepository = {
   async delete(id: string): Promise<void> {
     await query('DELETE FROM projects WHERE id = $1', [id]);
   },
+
+  // Idempotency check for POST /projects — a double-submit (rapid clicks,
+  // retries, second tab) would otherwise insert an identical row.
+  async findRecentDuplicate(name: string, budget: number, windowSec = 15): Promise<DbProject | null> {
+    const result = await query(
+      `SELECT ${projectColumns} FROM projects
+       WHERE name = $1 AND budget = $2
+         AND created_at > NOW() - make_interval(secs => $3)
+       ORDER BY created_at DESC LIMIT 1`,
+      [name, budget, windowSec]
+    );
+    return result.rows[0] ? mapProject(result.rows[0]) : null;
+  },
 };
 
 export default projectRepository;

@@ -11,12 +11,15 @@ import {
  User,
  FolderOpen,
  AlertTriangle,
- Globe
+ Globe,
+ Trash2
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { projectAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { showSuccess, showError } from '../utils/toast';
+import { invalidateCache, CACHE_KEYS } from '../utils/cache';
 import { collectAreas, areaLabel, areasLabel, fmtNairaCompact, fmtDate } from '../utils/statusMap';
 
 const statusMap = {
@@ -60,6 +63,8 @@ export default function Projects() {
  const [loading, setLoading] = useState(true);
  const [error, setError] = useState('');
  const [allLgaOptions, setAllLgaOptions] = useState([]);
+ const [deletingId, setDeletingId] = useState(null);
+ const isAdmin = user?.role === 'GOVERNMENT_ADMIN';
 
  // Sync search box when arriving via header search (/projects?search=...)
  useEffect(() => {
@@ -143,6 +148,27 @@ export default function Projects() {
 
  const filteredProjects = projects;
  const lgaOptions = allLgaOptions;
+
+ const deleteProject = async (project) => {
+ if (!window.confirm(`Delete project "${project.name}"? This permanently removes its milestones, submissions, and documents. This cannot be undone.`)) return;
+ setDeletingId(project.id);
+ try {
+ const res = await projectAPI.delete(project.id);
+ if (res?.success) {
+ // Drop it from state + every cache that could hold it
+ setProjects((prev) => prev.filter((p) => p.id !== project.id));
+ setPagination((prev) => prev ? { ...prev, total: Math.max(0, prev.total - 1) } : prev);
+ invalidateCache(`projects_list_cache_${user?.id}`);
+ invalidateCache(`recent_projects_cache_${user?.id}`);
+ invalidateCache(CACHE_KEYS.DASHBOARD_STATS);
+ showSuccess('Project deleted');
+ }
+ } catch (e) {
+ showError(e.message || 'Failed to delete project');
+ } finally {
+ setDeletingId(null);
+ }
+ };
 
  const exportCsv = () => {
  const rows = [
@@ -369,13 +395,24 @@ export default function Projects() {
  </div>
  </td>
  <td className="py-5 px-4">
- <div className="flex items-center space-x-3">
+ <div className="flex items-center space-x-1">
  <Link
  to={`/projects/${project.id}`}
  className="text-soft-fg hover:text-soft-fg p-2 rounded-lg hover:bg-soft transition-colors"
  >
  <Eye className="h-5 w-5" />
  </Link>
+ {isAdmin && (
+ <button
+ type="button"
+ onClick={() => deleteProject(project)}
+ disabled={deletingId === project.id}
+ className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors disabled:opacity-50"
+ title="Delete project"
+ >
+ <Trash2 className="h-5 w-5" />
+ </button>
+ )}
  </div>
  </td>
  </tr>
@@ -437,7 +474,18 @@ export default function Projects() {
  </div>
  </div>
  
- <div className="mt-3 flex justify-end">
+ <div className="mt-3 flex justify-end items-center space-x-3">
+ {isAdmin && (
+ <button
+ type="button"
+ onClick={() => deleteProject(project)}
+ disabled={deletingId === project.id}
+ className="text-red-600 hover:text-red-700 text-sm font-medium flex items-center disabled:opacity-50"
+ >
+ <Trash2 className="h-4 w-4 mr-1" />
+ {deletingId === project.id ? 'Deleting…' : 'Delete'}
+ </button>
+ )}
  <Link
  to={`/projects/${project.id}`}
  className="text-soft-fg hover:text-soft-fg text-sm font-medium flex items-center"

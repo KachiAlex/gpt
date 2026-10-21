@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Pencil, FileText, Check, X, HardHat, ShieldCheck, Download, Plus, Trash2, Globe } from 'lucide-react';
 import clsx from 'clsx';
 import { projectAPI, contractorAPI, documentAPI } from '../services/api';
@@ -8,6 +8,7 @@ import StatusPill from '../components/ui/StatusPill';
 import ProgressBar from '../components/ui/ProgressBar';
 import { categoryLabel, fmtNaira, fmtDate, areaLabel, currency } from '../utils/statusMap';
 import { showSuccess, showError } from '../utils/toast';
+import { invalidateCache, CACHE_KEYS } from '../utils/cache';
 
 // Map a milestone + its submissions to a review state for the timeline
 const milestoneState = (m, submissions) => {
@@ -24,6 +25,7 @@ const milestoneStatusClass = { approved: 'status-completed', awaiting: 'status-i
 
 export default function ProjectDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user, canAccessAdminFeatures } = useAuth();
   const [project, setProject] = useState(null);
   const [documents, setDocuments] = useState([]);
@@ -39,6 +41,7 @@ export default function ProjectDetail() {
   const [deletingMilestone, setDeletingMilestone] = useState(null);
   const [publishing, setPublishing] = useState(false);
   const [finSaving, setFinSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     try {
@@ -205,6 +208,26 @@ export default function ProjectDetail() {
     }
   };
 
+  const deleteProject = async () => {
+    if (!window.confirm(`Delete project "${project.name}"? This permanently removes its milestones, submissions, and documents. This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const res = await projectAPI.delete(id);
+      if (res?.success) {
+        // Drop the deleted project from every cached list
+        invalidateCache(CACHE_KEYS.PROJECTS_LIST);
+        invalidateCache(CACHE_KEYS.DASHBOARD_STATS);
+        invalidateCache(`${CACHE_KEYS.RECENT_PROJECTS}_${user?.id}`);
+        showSuccess('Project deleted');
+        navigate('/projects');
+      }
+    } catch (e) {
+      showError(e.message || 'Failed to delete project');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
       {/* Breadcrumb */}
@@ -273,6 +296,17 @@ export default function ProjectDetail() {
             <button type="button" onClick={openEdit} className="btn-secondary">
               <Pencil className="w-[18px] h-[18px]" strokeWidth={1.75} />
               Edit project
+            </button>
+          )}
+          {canAccessAdminFeatures() && (
+            <button
+              type="button"
+              onClick={deleteProject}
+              disabled={deleting}
+              className="btn-secondary !text-red-700 dark:!text-red-400 !border-red-200 dark:!border-red-900 hover:!bg-red-50 dark:hover:!bg-red-950/40 disabled:opacity-50"
+            >
+              <Trash2 className="w-[18px] h-[18px]" strokeWidth={1.75} />
+              {deleting ? 'Deleting…' : 'Delete'}
             </button>
           )}
           <Link to="/reports" className="btn-primary">
