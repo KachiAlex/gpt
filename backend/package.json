@@ -46,7 +46,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
-    "@types/node": "^24.5.1",
+    "@types/node": "^26.6.5",
     "@types/nodemailer": "^7.0.4",
     "@types/pg": "^8.18.0",
     "@types/qrcode": "^1.5.6",
