@@ -106,3 +106,25 @@ docker compose config            # validate compose file
 - JWT secret is required (no fallback default).
 - Uploaded files land under `backend/uploads/` (`public/` served statically,
   everything else via authenticated `GET /api/files/download/:id`).
+
+## Uptime monitoring
+
+`health-monitor.sh` runs on the VPS via cron (every 5 min recommended). It
+checks the API container, `/health` (which includes a DB check), the external
+API URL, the frontend, and disk usage — and posts alerts to
+`ALERT_WEBHOOK_URL` (Slack/Discord/generic webhook) on DOWN/RECOVERED
+transitions. See the header comment in the script for cron + env setup.
+
+## Deferred / scaling notes
+
+- **Redis Socket.IO adapter** — realtime rooms are in-memory, which is correct
+  for the single-container deployment. If a second API container is ever added
+  behind the load balancer, install `socket.io-redis` / `@socket.io/redis-adapter`
+  and share a Redis instance so events broadcast across nodes.
+- **Ministry / department / agency hierarchy** — white-label deployments use
+  replicated single-tenant stacks, so cross-ministry data isolation is physical,
+  not logical. If a single ministry ever needs multiple departments under one
+  instance, add an `organizations` table + `projects.organization_id` and scope
+  queries by it.
+- **M&E Inspector** is the existing `ME_OFFICER` role — there is no separate
+  inspector role by design.
