@@ -27,14 +27,17 @@ import {
  Plus,
  Trash2,
  ScrollText,
- Users
+ Users,
+ Link2,
+ Copy
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../contexts/AuthContext';
 import { useInstance } from '../contexts/InstanceContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { authAPI, userAPI, instanceAPI, auditAPI } from '../services/api';
+import { authAPI, userAPI, instanceAPI, auditAPI, inviteAPI } from '../services/api';
 import { showError, showSuccess } from '../utils/toast';
+import { roleLabel } from '../utils/statusMap';
 
 export default function Settings() {
  const { user, updateUser } = useAuth();
@@ -46,6 +49,11 @@ export default function Settings() {
  const [auditEntries, setAuditEntries] = useState([]);
  const [managedUsers, setManagedUsers] = useState([]);
  const [usersLoading, setUsersLoading] = useState(false);
+ const [invites, setInvites] = useState([]);
+ const [inviteForm, setInviteForm] = useState({ role: 'CONTRACTOR', email: '', expiresInDays: 7, note: '' });
+ const [inviteUrl, setInviteUrl] = useState('');
+ const [inviteBusy, setInviteBusy] = useState(false);
+ const [showInviteForm, setShowInviteForm] = useState(false);
  const [auditLoading, setAuditLoading] = useState(false);
  const [configRequests, setConfigRequests] = useState([]);
  const fileInputRef = useRef(null);
@@ -143,7 +151,49 @@ export default function Settings() {
      .then((res) => setManagedUsers(res?.data?.users || []))
      .catch(() => showError('Failed to load users'))
      .finally(() => setUsersLoading(false));
+   inviteAPI.list()
+     .then((res) => setInvites(res?.data?.invites || []))
+     .catch(() => {});
  }, [activeTab, isAdmin]);
+
+ const createInvite = async () => {
+   setInviteBusy(true);
+   setInviteUrl('');
+   try {
+     const res = await inviteAPI.create({
+       role: inviteForm.role,
+       email: inviteForm.email.trim() || undefined,
+       expiresInDays: Number(inviteForm.expiresInDays) || 7,
+       note: inviteForm.note.trim() || undefined,
+     });
+     if (res?.success) {
+       setInviteUrl(res.data.invite.url);
+       showSuccess('Invite link generated');
+       const list = await inviteAPI.list().catch(() => null);
+       if (list?.success) setInvites(list.data.invites || []);
+     } else {
+       showError(res?.message || 'Failed to create invite');
+     }
+   } catch (e) {
+     showError(e.message || 'Failed to create invite');
+   } finally {
+     setInviteBusy(false);
+   }
+ };
+
+ const revokeInvite = async (inv) => {
+   try {
+     const res = await inviteAPI.revoke(inv.id);
+     if (res?.success) {
+       setInvites((prev) => prev.map((i) => i.id === inv.id ? { ...i, revokedAt: new Date().toISOString() } : i));
+       showSuccess('Invite revoked');
+     } else {
+       showError(res?.message || 'Revoke failed');
+     }
+   } catch (e) {
+     showError(e.message || 'Revoke failed');
+   }
+ };
 
  const handleUserPatch = async (target, updates) => {
    try {
@@ -1231,9 +1281,103 @@ export default function Settings() {
 
  {/* User management (admin) */}
  {activeTab === 'users' && isAdmin && (
+ <div className="space-y-6">
  <div className="card">
- <h3 className="text-lg font-semibold text-ink mb-2">User management</h3>
- <p className="text-sm text-muted mb-6">Deactivate accounts, change roles, or reset passwords. Deactivation takes effect immediately.</p>
+ <div className="flex items-start justify-between gap-4 mb-2">
+  <div>
+   <h3 className="text-lg font-semibold text-ink">User management</h3>
+   <p className="text-sm text-muted">Deactivate accounts, change roles, or reset passwords. Deactivation takes effect immediately.</p>
+  </div>
+  <button type="button" onClick={() => setShowInviteForm((v) => !v)} className="btn-secondary flex items-center gap-2 flex-none">
+   <Link2 className="h-4 w-4" /> Invite link
+  </button>
+ </div>
+
+ {showInviteForm && (
+  <div className="mt-4 mb-6 p-4 border border-border rounded-xl bg-bg space-y-3">
+   <p className="text-sm text-muted">Generate a link the person opens to set their own details and password — no shared credentials.</p>
+   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>
+     <label className="block text-xs font-medium text-muted mb-1">Role *</label>
+     <select
+      value={inviteForm.role}
+      onChange={(e) => setInviteForm((f) => ({ ...f, role: e.target.value }))}
+      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface text-ink"
+     >
+      <option value="CONTRACTOR">Contractor</option>
+      <option value="ME_OFFICER">M&E Officer</option>
+      <option value="GOVERNMENT_OFFICER">Government Officer</option>
+      <option value="GOVERNMENT_ADMIN">Administrator</option>
+      <option value="PUBLIC">Public</option>
+     </select>
+    </div>
+    <div>
+     <label className="block text-xs font-medium text-muted mb-1">Their email (optional — locks the link to it)</label>
+     <input
+      type="email"
+      value={inviteForm.email}
+      onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+      placeholder="contractor@company.com"
+      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface text-ink"
+     />
+    </div>
+    <div>
+     <label className="block text-xs font-medium text-muted mb-1">Expires in (days)</label>
+     <input
+      type="number" min={1} max={30}
+      value={inviteForm.expiresInDays}
+      onChange={(e) => setInviteForm((f) => ({ ...f, expiresInDays: e.target.value }))}
+      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface text-ink"
+     />
+    </div>
+    <div>
+     <label className="block text-xs font-medium text-muted mb-1">Note (optional)</label>
+     <input
+      value={inviteForm.note}
+      onChange={(e) => setInviteForm((f) => ({ ...f, note: e.target.value }))}
+      placeholder="e.g. for ABC Construction"
+      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface text-ink"
+     />
+    </div>
+   </div>
+   <div className="flex items-center gap-3">
+    <button type="button" onClick={createInvite} disabled={inviteBusy} className="btn-primary text-sm disabled:opacity-50">
+     {inviteBusy ? 'Generating…' : 'Generate link'}
+    </button>
+    {inviteUrl && (
+     <div className="flex-1 flex items-center gap-2 min-w-0">
+      <code className="flex-1 text-xs bg-surface border border-border rounded-lg px-3 py-2 truncate text-ink">{inviteUrl}</code>
+      <button
+       type="button"
+       onClick={() => { navigator.clipboard?.writeText(inviteUrl); showSuccess('Link copied'); }}
+       className="btn-secondary text-xs flex items-center gap-1 flex-none"
+      >
+       <Copy className="h-3.5 w-3.5" /> Copy
+      </button>
+     </div>
+    )}
+   </div>
+  </div>
+ )}
+
+ {invites.filter((i) => !i.usedAt && !i.revokedAt && new Date(i.expiresAt) > new Date()).length > 0 && (
+  <div className="mb-6">
+   <h4 className="text-sm font-semibold text-ink mb-2">Pending invites</h4>
+   <div className="space-y-2">
+    {invites.filter((i) => !i.usedAt && !i.revokedAt && new Date(i.expiresAt) > new Date()).map((inv) => (
+     <div key={inv.id} className="flex items-center justify-between gap-3 p-3 bg-bg border border-border rounded-lg text-sm">
+      <div className="min-w-0">
+       <span className="font-medium text-ink">{roleLabel(inv.role)}</span>
+       <span className="text-muted"> — {inv.email || 'any email'}{inv.note ? ` · ${inv.note}` : ''}</span>
+       <span className="block text-xs text-muted">expires {new Date(inv.expiresAt).toLocaleDateString()} · by {inv.invitedByName}</span>
+      </div>
+      <button type="button" onClick={() => revokeInvite(inv)} className="text-xs font-semibold text-red-600 flex-none">Revoke</button>
+     </div>
+    ))}
+   </div>
+  </div>
+ )}
+
  {usersLoading ? (
    <p className="text-muted text-sm py-6 text-center">Loading…</p>
  ) : managedUsers.length === 0 ? (
@@ -1302,6 +1446,7 @@ export default function Settings() {
      </table>
    </div>
  )}
+ </div>
  </div>
  )}
 

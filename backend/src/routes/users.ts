@@ -1,11 +1,14 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import multer from 'multer';
 import { config } from '../config';
 import { authenticate, requireRoles } from '../middleware/auth';
 import { userRepository } from '../repositories/userRepository';
 import { notificationRepository } from '../repositories/notificationRepository';
 import { documentRepository } from '../repositories/documentRepository';
+import { inviteRepository } from '../repositories/inviteRepository';
 import { fileUploadService } from '../services/fileUploadService';
+import { getFrontendUrl } from '../services/emailService';
 import { DocumentCategory } from '../types/domain';
 import { query } from '../config/database';
 import { hashPassword } from '../utils/password';
@@ -153,6 +156,101 @@ router.post('/:id/reset-password', authenticate, requireRoles('GOVERNMENT_ADMIN'
   } catch (error: any) {
     console.error('Admin reset password error:', error);
     return res.status(500).json({ success: false, message: 'Failed to reset password' });
+  }
+});
+
+const INVITABLE_ROLES = new Set(['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER', 'CONTRACTOR', 'PUBLIC']);
+
+const inviteOrigin = (req: Request): string => {
+  const origin = req.headers.origin;
+  return typeof origin === 'string' ? origin : undefined as any;
+};
+
+/**
+ * POST /api/users/invites
+ * Admin: generate a role-locked invite link. The invitee sets their own
+ * password — no shared credentials. Token is stored hashed; the raw
+ * token only exists in the returned URL.
+ */
+router.post('/invites', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Request, res: Response) => {
+  try {
+    const { role, email, expiresInDays, note } = req.body ?? {};
+
+    if (!role || !INVITABLE_ROLES.has(String(role).toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid role — must be one of: ${[...INVITABLE_ROLES].join(', ')}`,
+      });
+    }
+    if (email !== undefined && email !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+      return res.status(400).json({ success: false, message: 'Invalid email address' });
+    }
+
+    const days = Math.min(Math.max(parseInt(expiresInDays ?? '7', 10) || 7, 1), 30);
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    const invite = await inviteRepository.create({
+      token: tokenHash,
+      email: email ? String(email).toLowerCase() : null,
+      role: String(role).toUpperCase(),
+      note: note ? String(note).slice(0, 500) : null,
+      invitedBy: req.user!.userId,
+      expiresAt,
+    });
+
+    await audit(auditFromReq(req, 'invite.create', 'invite', invite.id, { role: invite.role, email: invite.email }));
+
+    return res.status(201).json({
+      success: true,
+      message: 'Invite link created',
+      data: {
+        invite: {
+          id: invite.id,
+          role: invite.role,
+          email: invite.email,
+          expiresAt: invite.expiresAt,
+          url: `${getFrontendUrl(inviteOrigin(req))}/invite/${token}`,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error('Create invite error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to create invite' });
+  }
+});
+
+/**
+ * GET /api/users/invites
+ * Admin: recent invites with inviter/acceptor info.
+ */
+router.get('/invites', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (_req: Request, res: Response) => {
+  try {
+    const invites = await inviteRepository.listRecent();
+    return res.json({ success: true, data: { invites } });
+  } catch (error: any) {
+    console.error('List invites error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to list invites' });
+  }
+});
+
+/**
+ * DELETE /api/users/invites/:id
+ * Admin: revoke a pending invite.
+ */
+router.delete('/invites/:id', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Request, res: Response) => {
+  try {
+    const revoked = await inviteRepository.revoke(req.params.id);
+    if (!revoked) {
+      return res.status(404).json({ success: false, message: 'Invite not found or already used' });
+    }
+    await audit(auditFromReq(req, 'invite.revoke', 'invite', req.params.id));
+    return res.json({ success: true, message: 'Invite revoked' });
+  } catch (error: any) {
+    console.error('Revoke invite error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to revoke invite' });
   }
 });
 

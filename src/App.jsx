@@ -12,6 +12,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import InviteAccept from './pages/InviteAccept';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
@@ -54,7 +55,9 @@ function AppContent() {
   const location = useLocation();
 
   // Standalone pages render without the app shell (sidebar/header)
-  const isStandaloneRoute = ['/', '/public', '/login', '/forgot-password', '/reset-password'].includes(location.pathname);
+  const isStandaloneRoute =
+    ['/', '/public', '/login', '/forgot-password', '/reset-password'].includes(location.pathname)
+    || location.pathname.startsWith('/invite/');
 
   if (isStandaloneRoute) {
     return (
@@ -64,6 +67,7 @@ function AppContent() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/invite/:token" element={<InviteAccept />} />
       </Routes>
     );
   }

@@ -573,6 +573,35 @@ export const userAPI = {
 };
 
 // ============================================================================
+// INVITE APIs — admin generates role-locked links; invitees self-register
+// ============================================================================
+
+export const inviteAPI = {
+  // Admin
+  create: (data) =>
+    apiFetch('/users/invites', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  list: () =>
+    apiFetch('/users/invites'),
+
+  revoke: (id) =>
+    apiFetch(`/users/invites/${id}`, { method: 'DELETE' }),
+
+  // Public — no auth header needed (apiFetch just doesn't send one)
+  get: (token) =>
+    apiFetch(`/auth/invite/${token}`),
+
+  accept: (data) =>
+    apiFetch('/auth/register-invite', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
+
+// ============================================================================
 // DOCUMENT APIs
 // ============================================================================
 
@@ -649,6 +678,7 @@ export default {
   publicAPI,
   reportAPI,
   userAPI,
+  inviteAPI,
   documentAPI,
   instanceAPI,
   auditAPI,

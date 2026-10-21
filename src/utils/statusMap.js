@@ -40,6 +40,16 @@ export const STATUS_LABELS = {
 export const statusKey = (status) => STATUS_KEYS[status] || 'not-started';
 export const statusLabel = (status) => STATUS_LABELS[status] || status || 'Unknown';
 
+export const ROLE_LABELS = {
+  GOVERNMENT_ADMIN: 'Administrator',
+  GOVERNMENT_OFFICER: 'Government Officer',
+  ME_OFFICER: 'M&E Officer',
+  CONTRACTOR: 'Contractor',
+  PUBLIC: 'Public',
+};
+
+export const roleLabel = (role) => ROLE_LABELS[role] || role || 'Unknown';
+
 // Canonical category options — values match the backend ProjectCategory enum
 // exactly. Always store/send `value`, never re-derive it from the label.
 export const CATEGORY_OPTIONS = [

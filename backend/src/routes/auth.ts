@@ -9,6 +9,8 @@ import { sendEmail, getFrontendUrl } from '../services/emailService';
 import { audit, auditFromReq } from '../services/auditService';
 import { authenticate, getTokenFromRequest } from '../middleware/auth';
 import userRepository from '../repositories/userRepository';
+import contractorRepository from '../repositories/contractorRepository';
+import inviteRepository from '../repositories/inviteRepository';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { UserRole } from '../types/domain';
 import { DbUser } from '../types/models';
@@ -632,6 +634,155 @@ router.post('/logout', (_req: Request, res: Response) => {
     success: true,
     message: 'Logged out successfully'
   });
+});
+
+/**
+ * GET /api/auth/invite/:token
+ * Public: validate an invite link and return the role/pre-set email the
+ * form should display. Tokens are stored hashed — lookup by hash.
+ */
+router.get('/invite/:token', async (req: Request, res: Response) => {
+  try {
+    const tokenHash = crypto.createHash('sha256').update(String(req.params.token)).digest('hex');
+    const invite = await inviteRepository.findByToken(tokenHash);
+
+    if (!invite || invite.usedAt || invite.revokedAt || invite.expiresAt <= new Date()) {
+      return res.status(404).json({
+        success: false,
+        message: 'This invite link is invalid, expired, or has already been used',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        role: invite.role,
+        email: invite.email,
+        expiresAt: invite.expiresAt,
+        requiresCompanyProfile: invite.role === UserRole.CONTRACTOR,
+      },
+    });
+  } catch (error: any) {
+    console.error('Validate invite error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/register-invite
+ * Public: accept an invite — the invitee supplies their own password.
+ * The invite is consumed atomically before the user row is inserted so
+ * the same link can't register two accounts.
+ */
+router.post('/register-invite', async (req: Request, res: Response) => {
+  try {
+    const {
+      token, email, password, firstName, lastName, phone, department, jobTitle,
+      companyName, registrationNo, contactPerson, companyEmail, companyPhone,
+      companyAddress, yearsExperience, specialization,
+    } = req.body ?? {};
+
+    if (!token || !email || !password || !firstName) {
+      return res.status(400).json({
+        success: false,
+        message: 'token, email, password, and firstName are required',
+      });
+    }
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+    const invite = await inviteRepository.findByToken(tokenHash);
+    if (!invite || invite.usedAt || invite.revokedAt || invite.expiresAt <= new Date()) {
+      return res.status(404).json({
+        success: false,
+        message: 'This invite link is invalid, expired, or has already been used',
+      });
+    }
+
+    // An invite pinned to an email can only register that address
+    if (invite.email && invite.email !== String(email).toLowerCase()) {
+      return res.status(400).json({
+        success: false,
+        message: 'This invite was issued for a different email address',
+      });
+    }
+
+    // Contractor invites need the company profile fields up front —
+    // contractor_profiles columns are NOT NULL
+    if (invite.role === UserRole.CONTRACTOR) {
+      const missing = ['companyName', 'registrationNo', 'contactPerson', 'companyEmail', 'companyPhone', 'companyAddress']
+        .filter((k) => !req.body[k]);
+      if (missing.length > 0) {
+        return res.status(400).json({ success: false, message: `Missing company fields: ${missing.join(', ')}` });
+      }
+    }
+
+    const existingUser = await userRepository.findByEmail(String(email).toLowerCase());
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: 'User with this email already exists' });
+    }
+
+    if (invite.role === UserRole.CONTRACTOR) {
+      const existingReg = await contractorRepository.findByRegistrationNo(String(registrationNo));
+      if (existingReg) {
+        return res.status(409).json({ success: false, message: 'A contractor with that registration number already exists' });
+      }
+    }
+
+    // Consume atomically — a racing second acceptance gets null here
+    const consumed = await inviteRepository.consume(tokenHash);
+    if (!consumed) {
+      return res.status(404).json({
+        success: false,
+        message: 'This invite link is invalid, expired, or has already been used',
+      });
+    }
+
+    const hashedPassword = await hashPassword(password);
+    const user = await userRepository.create({
+      email: String(email).toLowerCase(),
+      password: hashedPassword,
+      firstName,
+      lastName: lastName || '',
+      role: invite.role as UserRole,
+      phone: phone || null,
+      department: department || null,
+      jobTitle: jobTitle || null,
+      address: null,
+      city: null,
+      state: null,
+      profileImage: null,
+    });
+
+    await inviteRepository.stampUsedBy(invite.id, user.id);
+
+    if (invite.role === UserRole.CONTRACTOR) {
+      await contractorRepository.create({
+        userId: user.id,
+        companyName: String(companyName),
+        registrationNo: String(registrationNo),
+        contactPerson: String(contactPerson),
+        companyEmail: String(companyEmail),
+        companyPhone: String(companyPhone),
+        companyAddress: String(companyAddress),
+        yearsExperience: yearsExperience ? parseInt(yearsExperience, 10) : undefined,
+        specialization: Array.isArray(specialization) ? specialization : [],
+      });
+    }
+
+    await audit(auditFromReq(req, 'invite.accept', 'user', user.id, { email: user.email, role: user.role, inviteId: invite.id }));
+
+    return res.status(201).json({
+      success: true,
+      message: 'Account created — you can now log in',
+      data: { user: sanitizeUser(user) },
+    });
+  } catch (error: any) {
+    console.error('Register invite error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
 });
 
 export default router;
