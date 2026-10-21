@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { Check, X, FileText, ClipboardCheck, Inbox } from 'lucide-react';
 import clsx from 'clsx';
 import { submissionAPI, documentAPI, projectAPI } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
 import { useInstance } from '../contexts/InstanceContext';
 import EmptyState from '../components/ui/EmptyState';
 import { statusLabel, fmtNairaCompact, fmtAgo } from '../utils/statusMap';
@@ -18,7 +17,6 @@ const subStatusClass = (s) =>
   : 'status-in-progress';
 
 export default function MEDashboard() {
-  const { user } = useAuth();
   const { stages = [] } = useInstance();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +58,7 @@ export default function MEDashboard() {
       const first = list.find((s) => QUEUE_STATUSES.includes(s.status));
       if (first) setSelectedId(first.id);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // Fetch full submission details (milestone, documents) + project facts on selection

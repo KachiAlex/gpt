@@ -40,6 +40,8 @@ import { authAPI, userAPI, instanceAPI, auditAPI, inviteAPI } from '../services/
 import { showError, showSuccess } from '../utils/toast';
 import { roleLabel } from '../utils/statusMap';
 
+const TAB_IDS = ['profile', 'notifications', 'security', 'appearance', 'workflow', 'users', 'audit', 'system'];
+
 export default function Settings() {
  const { user, updateUser } = useAuth();
  const { stages: workflowStages, refreshWorkflow } = useInstance();
@@ -63,7 +65,6 @@ export default function Settings() {
 
  // Keep ?tab=<id> in the URL so admin links (e.g. sidebar "Users") can
  // deep-link straight to a tab and the tab survives reload/share
- const TAB_IDS = ['profile', 'notifications', 'security', 'appearance', 'workflow', 'users', 'audit', 'system'];
  const setActiveTab = (id) => {
    setActiveTabState(id);
    setSearchParams((p) => { p.set('tab', id); return p; }, { replace: true });
@@ -71,7 +72,7 @@ export default function Settings() {
  useEffect(() => {
    const t = searchParams.get('tab');
    if (t && TAB_IDS.includes(t) && t !== activeTab) setActiveTabState(t);
- }, [searchParams]);
+ }, [searchParams, activeTab]);
  const [showPassword, setShowPassword] = useState(false);
  const [loading, setSaving] = useState(false);
  const [successMessage, setSuccessMessage] = useState('');

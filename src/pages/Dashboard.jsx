@@ -13,7 +13,6 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [projects, setProjects] = useState([]);
   const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -28,7 +27,6 @@ export default function Dashboard() {
       list.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
       setProjects(list.slice(0, 5));
       setActivities(actRes?.data?.activities?.slice(0, 6) || []);
-      setLoading(false);
     });
     return () => { isMounted = false; };
   }, []);

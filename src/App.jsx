@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, Suspense, lazy } from 'react';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
@@ -9,26 +9,37 @@ import { ContractorsProvider } from './contexts/ContractorsContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { InstanceProvider, useInstance } from './contexts/InstanceContext';
 import Home from './pages/Home';
-import Login from './pages/Login';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import InviteAccept from './pages/InviteAccept';
-import Dashboard from './pages/Dashboard';
-import Projects from './pages/Projects';
-import ProjectDetail from './pages/ProjectDetail';
-import ProjectNew from './pages/ProjectNew';
-import Contractors from './pages/Contractors';
-import ContractorDashboard from './pages/ContractorDashboard';
-import ContractorNew from './pages/ContractorNew';
-import MEOfficerNew from './pages/MEOfficerNew';
-import MEDashboard from './pages/MEDashboard';
-import Reports from './pages/Reports';
-import Analytics from './pages/Analytics';
-import MapView from './pages/MapView';
-import Settings from './pages/Settings';
-import ProgressMeasurement from './pages/ProgressMeasurement';
-import PublicPortal from './pages/PublicPortal';
+// Everything else code-splits — the app shell shouldn't pay for pages the
+// user's role can never reach (e.g. contractors don't need Analytics/MapView)
+const Login = lazy(() => import('./pages/Login'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const InviteAccept = lazy(() => import('./pages/InviteAccept'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Projects = lazy(() => import('./pages/Projects'));
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
+const ProjectNew = lazy(() => import('./pages/ProjectNew'));
+const Contractors = lazy(() => import('./pages/Contractors'));
+const ContractorDashboard = lazy(() => import('./pages/ContractorDashboard'));
+const ContractorNew = lazy(() => import('./pages/ContractorNew'));
+const MEOfficerNew = lazy(() => import('./pages/MEOfficerNew'));
+const MEDashboard = lazy(() => import('./pages/MEDashboard'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const MapView = lazy(() => import('./pages/MapView'));
+const Settings = lazy(() => import('./pages/Settings'));
+const ProgressMeasurement = lazy(() => import('./pages/ProgressMeasurement'));
+const PublicPortal = lazy(() => import('./pages/PublicPortal'));
 import './App.css';
+
+// Shown while a lazy route chunk loads
+function RouteFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-[50vh]" role="status" aria-label="Loading page">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+    </div>
+  );
+}
 
 // Renders children only when the deployment has the feature licensed
 // (INSTANCE_FEATURES on the backend). Otherwise bounces to `to`.
@@ -61,6 +72,7 @@ function AppContent() {
 
   if (isStandaloneRoute) {
     return (
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/" element={<FeatureRoute feature="publicPortal" to="/login"><Home /></FeatureRoute>} />
         <Route path="/public" element={<FeatureRoute feature="publicPortal"><PublicPortal /></FeatureRoute>} />
@@ -69,6 +81,7 @@ function AppContent() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/invite/:token" element={<InviteAccept />} />
       </Routes>
+      </Suspense>
     );
   }
 
@@ -81,6 +94,7 @@ function AppContent() {
         <Header />
 
         <main className="p-6 lg:p-8">
+          <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/dashboard" element={
               <ProtectedRoute roles={['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER']}>
@@ -153,6 +167,7 @@ function AppContent() {
               </ProtectedRoute>
             } />
           </Routes>
+          </Suspense>
         </main>
       </div>
     </div>
@@ -168,7 +183,6 @@ function App() {
         const parsed = JSON.parse(authData);
         // Clear tokens that look suspicious or incomplete
         if (parsed.token && (!parsed.user || !parsed.user.role || !parsed.user.email)) {
-          console.log('Clearing invalid auth data');
           localStorage.removeItem('gpt_auth');
         }
       } catch (error) {

@@ -28,7 +28,7 @@ const formatDate = (value) => {
  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-NG');
 };
 
-export default function ProgressTracker({ projectId, project, milestones = [], submissions = [] }) {
+export default function ProgressTracker({ project, milestones = [], submissions = [] }) {
  const progressData = useMemo(() => {
  // --- Milestones ---
  const ms = Array.isArray(milestones) ? milestones : [];
@@ -125,7 +125,6 @@ export default function ProgressTracker({ projectId, project, milestones = [], s
  };
  }, [project, milestones, submissions]);
 
- const [activeView, setActiveView] = useState('overview');
  const [, setTick] = useState(0);
  const recalculate = () => setTick((t) => t + 1); // re-render (memo recomputes on prop change)
 

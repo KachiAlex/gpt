@@ -24,22 +24,19 @@ export const ContractorsProvider = ({ children }) => {
       try {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < cacheTime) {
-          console.log('Loading contractors from cache...');
           setContractors(data);
           setLoading(false);
           return;
         }
-      } catch (e) {
-        console.log('Error parsing cached contractors, fetching fresh data');
+      } catch {
+        // Corrupt cache entry — fall through to a fresh fetch
       }
     }
     
     try {
       setLoading(true);
       setError(null);
-      console.log('Loading contractors from API...');
       const response = await contractorAPI.getAll({ limit: 100 });
-      console.log('Load contractors response:', response);
       
       if (response.success && response.data && response.data.contractors) {
         // Transform API data to match frontend structure
@@ -77,7 +74,6 @@ export const ContractorsProvider = ({ children }) => {
           yearsExperience: contractor.yearsExperience,
           user: contractor.user
         }));
-        console.log('Transformed contractors:', transformed);
         setContractors(transformed);
         // Cache the result
         localStorage.setItem(cacheKey, JSON.stringify({
@@ -85,12 +81,10 @@ export const ContractorsProvider = ({ children }) => {
           timestamp: Date.now()
         }));
       } else {
-        console.log('No contractors found in response');
         setContractors([]);
       }
     } catch (error) {
       if (error.message && error.message.includes('Authentication expired')) {
-        console.log('Authentication expired, skipping contractors load');
         setContractors([]);
       } else {
         console.error('Error loading contractors:', error);
@@ -155,7 +149,6 @@ export const ContractorsProvider = ({ children }) => {
         specialization: contractorData.specialization ? [contractorData.specialization] : []
       };
 
-      console.log('Creating contractor profile:', contractorProfileData);
       const response = await contractorAPI.create(contractorProfileData);
       
       if (response.success) {
@@ -189,7 +182,7 @@ export const ContractorsProvider = ({ children }) => {
     }
   };
 
-  const deleteContractor = async (id) => {
+  const deleteContractor = async (_id) => {
     try {
       // Note: Need to check if delete endpoint exists in backend
       await loadContractors();

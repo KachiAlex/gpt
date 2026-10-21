@@ -128,7 +128,7 @@ export const AuthProvider = ({ children }) => {
     const onExpired = () => signOut();
     window.addEventListener('auth:expired', onExpired);
     return () => window.removeEventListener('auth:expired', onExpired);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const updateUser = (userData) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
  Upload, 
  Camera, 
@@ -62,7 +62,7 @@ export default function ContractorDashboard() {
  const [submissionProgress, setSubmissionProgress] = useState(0);
  const [submitting, setSubmitting] = useState(false);
 
- const loadProjects = async () => {
+ const loadProjects = useCallback(async () => {
  try {
  // Scope to this contractor's assigned projects — the contractor profile
  // id rides on the session user object (set at login).
@@ -85,7 +85,7 @@ export default function ContractorDashboard() {
  console.error('Failed to load contractor projects:', e);
  setContractorProjects([]);
  }
- };
+ }, [user?.contractorId]);
 
  useEffect(() => {
  let isMounted = true;
@@ -95,7 +95,7 @@ export default function ContractorDashboard() {
  if (isMounted) setLoading(false);
  })();
  return () => { isMounted = false; };
- }, []);
+ }, [loadProjects]);
 
  const totalBudget = contractorProjects.reduce((sum, project) => sum + (project.budget || 0), 0);
  const avgProgress = contractorProjects.length > 0 ? Math.round(contractorProjects.reduce((sum, project) => sum + (project.progress || 0), 0) / contractorProjects.length) : 0;

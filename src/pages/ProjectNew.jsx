@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { 
  ArrowLeft,
  Save,
@@ -15,7 +15,6 @@ import {
  Check
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import clsx from 'clsx';
 import { projectAPI } from '../services/api';
 import { useContractors } from '../contexts/ContractorsContext';
 import { showSuccess, showError } from '../utils/toast';
@@ -187,7 +186,8 @@ export default function ProjectNew() {
    : {}),
  };
 
- console.log('Submitting project:', submissionData);
+ 
+
  const response = await projectAPI.create(submissionData);
  
  if (response.success) {

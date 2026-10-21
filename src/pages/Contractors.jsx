@@ -41,7 +41,7 @@ const statusStyles = {
 };
 
 export default function Contractors() {
- const { contractors, error: contractorsError, loading: contractorsLoading } = useContractors();
+ const { contractors, error: contractorsError } = useContractors();
  const { user } = useAuth();
  const isAdmin = user?.role === 'GOVERNMENT_ADMIN';
  const [searchTerm, setSearchTerm] = useState('');

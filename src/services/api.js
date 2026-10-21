@@ -82,7 +82,7 @@ const apiFetch = async (endpoint, options = {}) => {
         } else {
           try {
             data = JSON.parse(text);
-          } catch (parseError) {
+          } catch {
             // JSON parsing failed - likely HTML or other content
             console.error('Failed to parse JSON response:', text.substring(0, 200));
             
