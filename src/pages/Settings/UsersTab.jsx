@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link2, Copy } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,6 +15,7 @@ export default function UsersTab() {
   const [inviteUrl, setInviteUrl] = useState('');
   const [inviteBusy, setInviteBusy] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
+  const inviteInFlight = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,6 +31,8 @@ export default function UsersTab() {
   }, []);
 
   const createInvite = async () => {
+    if (inviteInFlight.current) return;
+    inviteInFlight.current = true;
     setInviteBusy(true);
     setInviteUrl('');
     try {
@@ -50,6 +53,7 @@ export default function UsersTab() {
     } catch (e) {
       showError(e.message || 'Failed to create invite');
     } finally {
+      inviteInFlight.current = false;
       setInviteBusy(false);
     }
   };

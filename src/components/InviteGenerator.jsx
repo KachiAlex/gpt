@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link2, Copy, CheckCircle } from 'lucide-react';
 import { inviteAPI } from '../services/api';
 import { showSuccess, showError } from '../utils/toast';
@@ -13,9 +13,13 @@ export default function InviteGenerator({ role = 'CONTRACTOR', roleEditable = fa
   const [form, setForm] = useState({ role, email: '', expiresInDays: 7, note: '' });
   const [busy, setBusy] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
+  // Synchronous in-flight guard — state alone can't stop clicks that land
+  // before React re-renders the button (the triple-click dupe class of bug).
+  const inFlight = useRef(false);
 
   const generate = async () => {
-    if (busy) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setInviteUrl('');
     try {
@@ -34,6 +38,7 @@ export default function InviteGenerator({ role = 'CONTRACTOR', roleEditable = fa
     } catch (e) {
       showError(e.message || 'Failed to create invite');
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };

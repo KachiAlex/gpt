@@ -38,7 +38,7 @@ const getAuthToken = () => {
 /**
  * Base fetch wrapper with authentication and error handling
  */
-const apiFetch = async (endpoint, options = {}) => {
+export const apiFetch = async (endpoint, options = {}) => {
   const token = getAuthToken();
   
   const headers = {
