@@ -251,6 +251,37 @@ describe('API Integration Tests', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.stats).toBeDefined();
     });
+
+    it('should export public projects as CSV', async () => {
+      queryMock.mockReset();
+      queryMock.mockResolvedValue({
+        rows: [{
+          name: 'Road, "Phase 2"',
+          category: 'Infrastructure',
+          status: 'IN_PROGRESS',
+          progress: 40,
+          budget: 1250000,
+          financial_status: 'FUNDED',
+          start_date: '2026-01-01',
+          expected_end_date: '2026-12-31',
+          lga: ['Ikeja', 'Eti-Osa'],
+          contractor_name: 'ACME Ltd',
+          description: 'Line one\nLine two',
+        }],
+        rowCount: 1,
+      });
+
+      const response = await request(app)
+        .get('/api/public/projects.csv');
+
+      expect(response.status).toBe(200);
+      expect(response.headers['content-type']).toContain('text/csv');
+      expect(response.headers['content-disposition']).toContain('public-projects.csv');
+      const [header, row] = response.text.trim().split('\n');
+      expect(header).toContain('expected_end_date');
+      expect(row).toContain('"Road, ""Phase 2"""'); // commas/quotes escaped
+      expect(row).toContain('Ikeja; Eti-Osa'); // LGA array joined
+    });
   });
 
   describe('Error Handling', () => {

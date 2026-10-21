@@ -527,7 +527,7 @@ router.get('/projects.csv', async (_req: Request, res: Response) => {
   try {
     const result = await query(
       `SELECT p.name, p.category, p.status, p.progress, p.budget,
-              p.financial_status, p.start_date, p.expected_completion,
+              p.financial_status, p.start_date, p.expected_end_date,
               p.lga, p.description, cp.company_name AS contractor_name
        FROM projects p
        LEFT JOIN contractor_profiles cp ON p.contractor_id = cp.id
@@ -535,7 +535,7 @@ router.get('/projects.csv', async (_req: Request, res: Response) => {
        ORDER BY p.created_at DESC`
     );
 
-    const header = 'name,category,status,progress_percent,budget,financial_status,start_date,expected_completion,lga,contractor,description';
+    const header = 'name,category,status,progress_percent,budget,financial_status,start_date,expected_end_date,lga,contractor,description';
     const lines = result.rows.map((r: any) => [
       r.name,
       r.category,
@@ -544,7 +544,7 @@ router.get('/projects.csv', async (_req: Request, res: Response) => {
       r.budget,
       r.financial_status,
       r.start_date ? new Date(r.start_date).toISOString().slice(0, 10) : '',
-      r.expected_completion ? new Date(r.expected_completion).toISOString().slice(0, 10) : '',
+      r.expected_end_date ? new Date(r.expected_end_date).toISOString().slice(0, 10) : '',
       Array.isArray(r.lga) ? r.lga.join('; ') : (r.lga ?? ''),
       r.contractor_name,
       r.description,
