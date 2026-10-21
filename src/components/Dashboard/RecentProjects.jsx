@@ -3,16 +3,21 @@ import { ArrowRight, MapPin, Calendar, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { projectAPI } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 import { fmtNaira } from '../../utils/statusMap';
 
 const statusStyles = {
  'COMPLETED': 'status-completed',
  'IN_PROGRESS': 'status-in-progress',
  'DELAYED': 'status-delayed',
- 'NOT_STARTED': 'status-not-started'
+ 'NOT_STARTED': 'status-not-started',
+ 'NEAR_COMPLETION': 'status-in-progress',
+ 'ON_HOLD': 'status-delayed',
+ 'CANCELLED': 'status-delayed'
 };
 
 export default function RecentProjects() {
+ const { user } = useAuth();
  const [projects, setProjects] = useState([]);
  const [loading, setLoading] = useState(true);
  const [error, setError] = useState(null);
@@ -20,8 +25,9 @@ export default function RecentProjects() {
  useEffect(() => {
  let isMounted = true;
  const loadProjects = async () => {
- // Check cache first (3 minute cache for recent projects)
- const cacheKey = 'recent_projects_cache';
+ // Check cache first (3 minute cache, keyed per user — the project list is
+ // role-scoped server-side so a shared cache would leak between accounts)
+ const cacheKey = `recent_projects_cache_${user?.id || 'anon'}`;
  const cacheTime = 3 * 60 * 1000; // 3 minutes
  try {
  const cached = localStorage.getItem(cacheKey);
@@ -63,7 +69,7 @@ export default function RecentProjects() {
  };
  loadProjects();
  return () => { isMounted = false; };
- }, []);
+ }, [user?.id]);
  return (
  <div className="card">
  <div className="flex items-center justify-between mb-6">
@@ -104,7 +110,7 @@ export default function RecentProjects() {
  <div className="flex items-center space-x-4 text-xs text-muted mb-3">
  <div className="flex items-center">
  <MapPin className="h-3 w-3 mr-1" />
- {project.lga}
+ {Array.isArray(project.lga) ? project.lga.join(', ') : project.lga}
  </div>
  <div className="flex items-center">
  <DollarSign className="h-3 w-3 mr-1" />

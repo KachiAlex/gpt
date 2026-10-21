@@ -162,7 +162,7 @@ export default function Home() {
                   className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col gap-3.5 hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-center justify-between gap-2.5">
-                    <span className="text-[13px] font-semibold text-primary-800 bg-primary-100 px-2.5 py-[3px] rounded-full">{p.lga}</span>
+                    <span className="text-[13px] font-semibold text-primary-800 bg-primary-100 px-2.5 py-[3px] rounded-full">{Array.isArray(p.lga) ? p.lga.join(', ') : p.lga}</span>
                     <StatusPill status={p.status} />
                   </div>
                   <h3 className="m-0 font-bold text-[19px] leading-snug">{p.name}</h3>

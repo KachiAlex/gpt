@@ -106,6 +106,24 @@ const incrementMediaCount = (submissionId: string | null) =>
     ? query('UPDATE submissions SET media_count = media_count + 1 WHERE id = $1', [submissionId])
     : Promise.resolve();
 
+const decrementMediaCount = (submissionId: string | null) =>
+  submissionId
+    ? query('UPDATE submissions SET media_count = GREATEST(media_count - 1, 0) WHERE id = $1', [submissionId])
+    : Promise.resolve();
+
+// Write-side authorization: gov staff and the owning contractor may attach
+// files to a project/submission; PUBLIC accounts can't upload at all.
+const canWriteToTarget = async (
+  user: AuthUser,
+  projectId: string | null,
+  submissionId: string | null,
+): Promise<boolean> => {
+  if (!GOV_ROLES.has(user.role) && user.role !== 'CONTRACTOR') return false;
+  if (submissionId && !(await canAccessSubmissionDocs(user, submissionId))) return false;
+  if (projectId && !(await canAccessProjectDocs(user, projectId))) return false;
+  return true;
+};
+
 /**
  * POST /api/files/upload
  * Upload a single file
@@ -143,6 +161,13 @@ router.post('/upload', verifyToken, upload.single('file'), async (req: Request, 
 
     const normalizedProjectId = normalizeId(projectId);
     const normalizedSubmissionId = normalizeId(submissionId);
+
+    if (!(await canWriteToTarget(req.user, normalizedProjectId, normalizedSubmissionId))) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to upload to this project or submission'
+      });
+    }
 
     // Validate file
     const validation = fileUploadService.validateFile(req.file, config.maxFileSize);
@@ -233,6 +258,13 @@ router.post('/upload-multiple', verifyToken, upload.array('files', 10), async (r
 
     const normalizedProjectId = normalizeId(projectId);
     const normalizedSubmissionId = normalizeId(submissionId);
+
+    if (!(await canWriteToTarget(req.user, normalizedProjectId, normalizedSubmissionId))) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to upload to this project or submission'
+      });
+    }
 
     const uploadResults: DocumentWithUrl[] = [];
     const errors: { fileName: string; error: string }[] = [];
@@ -365,6 +397,7 @@ router.delete('/:id', verifyToken, async (req: Request, res: Response) => {
 
     // Delete document record from Postgres
     await documentRepository.delete(id);
+    await decrementMediaCount(document.submissionId ?? null);
 
     return res.json({
       success: true,

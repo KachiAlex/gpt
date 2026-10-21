@@ -133,8 +133,10 @@ const apiFetch = async (endpoint, options = {}) => {
       if (endpoint.includes('/auth/login') || endpoint.includes('/auth/register') || endpoint.includes('/auth/mfa-verify')) {
         throw new Error(data?.message || 'Authentication failed. Please check your credentials.');
       }
-      // For authenticated endpoints, it's likely a token expiry
+      // For authenticated endpoints, it's likely a token expiry — notify
+      // AuthContext so the user is actually signed out, not just stranded
       localStorage.removeItem('gpt_auth');
+      window.dispatchEvent(new Event('auth:expired'));
       throw new Error('Authentication expired. Please log in again.');
     }
 
@@ -314,7 +316,17 @@ export const authAPI = {
 
 export const projectAPI = {
   getAll: (filters = {}) => {
-    const params = new URLSearchParams(filters);
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value === undefined || value === null || value === '') continue;
+      // Array filters (e.g. lga) must repeat the key — Express only builds
+      // arrays from repeated params, not comma-joined strings
+      if (Array.isArray(value)) {
+        value.forEach((v) => params.append(key, v));
+      } else {
+        params.append(key, value);
+      }
+    }
     return apiFetch(`/projects?${params}`);
   },
 

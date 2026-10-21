@@ -364,6 +364,13 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
   }
 });
 
+// Profile-adjacent reads carry budgets, ratings and approval stats — same
+// gate as GET /:id: government roles or the owning contractor only.
+const canReadContractor = async (req: Request, contractorUserId: string): Promise<boolean> => {
+  const GOV = new Set(['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER']);
+  return GOV.has(req.user!.role) || contractorUserId === req.user!.userId;
+};
+
 /**
  * GET /api/contractors/:id/stats
  * Get contractor statistics
@@ -378,6 +385,9 @@ router.get('/:id/stats', verifyToken, async (req: Request, res: Response) => {
         success: false,
         message: 'Contractor not found',
       });
+    }
+    if (!(await canReadContractor(req, contractor.userId))) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this contractor' });
     }
 
     const stats: ContractorStats = await contractorRepository.getStats(id);
@@ -409,6 +419,9 @@ router.get('/:id/performance', verifyToken, async (req: Request, res: Response) 
         success: false,
         message: 'Contractor not found',
       });
+    }
+    if (!(await canReadContractor(req, contractor.userId))) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this contractor' });
     }
 
     const stats = await contractorRepository.getStats(id);

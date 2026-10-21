@@ -3,31 +3,21 @@ import {
  Upload, 
  Camera, 
  FileText, 
- Calendar, 
  MapPin, 
- DollarSign,
- Clock,
  CheckCircle,
- AlertTriangle,
- Plus,
  Eye,
- MessageSquare,
  TrendingUp,
  Users,
  Award,
  Bell,
- Download,
- Edit,
  Send,
- Filter,
- Search,
  Star,
  Target,
  BarChart3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
-import { projectAPI, submissionAPI, contractorAPI } from '../services/api';
+import { projectAPI, submissionAPI, contractorAPI, documentAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { showSuccess, showError } from '../utils/toast';
 import { fmtNairaCompact } from '../utils/statusMap';
@@ -35,11 +25,23 @@ import { fmtNairaCompact } from '../utils/statusMap';
 // Mock data removed - now using API calls
 
 const statusStyles = {
- 'Completed': 'status-completed',
- 'In Progress': 'status-in-progress',
- 'Near Completion': 'bg-soft text-brand',
- 'Delayed': 'status-delayed',
- 'Not Started': 'status-not-started'
+ COMPLETED: 'status-completed',
+ IN_PROGRESS: 'status-in-progress',
+ NEAR_COMPLETION: 'bg-soft text-brand',
+ DELAYED: 'status-delayed',
+ ON_HOLD: 'status-delayed',
+ CANCELLED: 'status-not-started',
+ NOT_STARTED: 'status-not-started',
+};
+
+const statusLabels = {
+ COMPLETED: 'Completed',
+ IN_PROGRESS: 'In Progress',
+ NEAR_COMPLETION: 'Near Completion',
+ DELAYED: 'Delayed',
+ ON_HOLD: 'On Hold',
+ CANCELLED: 'Cancelled',
+ NOT_STARTED: 'Not Started',
 };
 
 export default function ContractorDashboard() {
@@ -51,48 +53,93 @@ export default function ContractorDashboard() {
  const [contractorProjects, setContractorProjects] = useState([]);
  const [contractorProfile, setContractorProfile] = useState(null);
  const [loading, setLoading] = useState(true);
- const [recentActivities] = useState([]);
  const [notifications] = useState([]);
- const [upcomingDeadlines] = useState([]);
- 
+ const [attachmentFiles, setAttachmentFiles] = useState([]);
+
  // Form state for submission modal
  const [submissionType, setSubmissionType] = useState('progress');
  const [submissionDescription, setSubmissionDescription] = useState('');
  const [submissionProgress, setSubmissionProgress] = useState(0);
  const [submitting, setSubmitting] = useState(false);
 
- useEffect(() => {
- let isMounted = true;
  const loadProjects = async () => {
  try {
- setLoading(true);
  // Scope to this contractor's assigned projects — the contractor profile
  // id rides on the session user object (set at login).
  const res = await projectAPI.getAll(user?.contractorId ? { contractorId: user.contractorId, limit: 100 } : { limit: 100 });
- if (res?.success && isMounted) {
- setContractorProjects(res.data?.projects || []);
+ if (res?.success) {
+ const list = res.data?.projects || [];
+ // Pull each project's detail for real milestone + submission data
+ const detailed = await Promise.all(
+   list.map((p) => projectAPI.getById(p.id).then((r) => r?.data?.project || p).catch(() => p))
+ );
+ setContractorProjects(detailed);
  }
- if (user?.contractorId && isMounted) {
+ if (user?.contractorId) {
  try {
  const prof = await contractorAPI.getById(user.contractorId);
- if (prof?.success && isMounted) setContractorProfile(prof.data?.contractor || null);
+ if (prof?.success) setContractorProfile(prof.data?.contractor || null);
  } catch { /* profile optional — header falls back to user name */ }
  }
  } catch (e) {
  console.error('Failed to load contractor projects:', e);
  setContractorProjects([]);
- } finally {
- if (isMounted) setLoading(false);
  }
  };
- loadProjects();
+
+ useEffect(() => {
+ let isMounted = true;
+ (async () => {
+ setLoading(true);
+ await loadProjects();
+ if (isMounted) setLoading(false);
+ })();
  return () => { isMounted = false; };
  }, []);
 
  const totalBudget = contractorProjects.reduce((sum, project) => sum + (project.budget || 0), 0);
  const avgProgress = contractorProjects.length > 0 ? Math.round(contractorProjects.reduce((sum, project) => sum + (project.progress || 0), 0) / contractorProjects.length) : 0;
- const totalMilestones = 0; // Will be calculated from actual milestones data
- const completedMilestones = 0; // Will be calculated from actual milestones data
+ const allMilestones = contractorProjects.flatMap((p) => (p.milestones || []).map((m) => ({ ...m, projectName: p.name })));
+ const totalMilestones = allMilestones.filter((m) => m.status !== 'CANCELLED').length;
+ const completedMilestones = allMilestones.filter((m) => m.status === 'COMPLETED').length;
+ const stalledCount = contractorProjects.filter((p) => p.status === 'DELAYED' || p.status === 'ON_HOLD').length;
+
+ // Earliest open milestone per project — drives the "Next Milestone" block
+ const nextMilestoneFor = (project) =>
+   (project.milestones || [])
+     .filter((m) => m.status !== 'COMPLETED' && m.status !== 'CANCELLED')
+     .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))[0] || null;
+
+ // Upcoming deadlines = open milestones with a due date, soonest first
+ const upcomingDeadlines = allMilestones
+   .filter((m) => m.dueDate && m.status !== 'COMPLETED' && m.status !== 'CANCELLED')
+   .map((m) => {
+     const daysLeft = Math.ceil((new Date(m.dueDate).getTime() - Date.now()) / 86400000);
+     return {
+       milestone: m.name,
+       project: m.projectName,
+       dueDate: m.dueDate,
+       daysLeft,
+       status: daysLeft < 0 ? 'at-risk' : daysLeft <= 14 ? 'at-risk' : 'ahead',
+     };
+   })
+   .sort((a, b) => a.daysLeft - b.daysLeft)
+   .slice(0, 10);
+
+ // Activity feed = this contractor's recent submissions across projects
+ const recentActivities = contractorProjects
+   .flatMap((p) =>
+     (p.recentSubmissions || []).map((s) => ({
+       id: s.id,
+       title: s.title,
+       project: p.name,
+       status: s.status,
+       ts: s.submittedAt ? new Date(s.submittedAt).getTime() : 0,
+       date: s.submittedAt ? new Date(s.submittedAt).toLocaleDateString() : '—',
+     }))
+   )
+   .sort((a, b) => b.ts - a.ts)
+   .slice(0, 10);
 
  const handleSubmitUpdate = async () => {
  if (!selectedProject || !submissionDescription.trim()) {
@@ -125,19 +172,32 @@ export default function ContractorDashboard() {
  const res = await submissionAPI.create(submissionData);
  
  if (res?.success) {
+ // Attach any selected files to the new submission
+ if (attachmentFiles.length > 0 && res.data?.submission?.id) {
+ try {
+ const fd = new FormData();
+ attachmentFiles.forEach((f) => fd.append('files', f));
+ fd.append('category', 'PHOTO');
+ fd.append('submissionId', res.data.submission.id);
+ await documentAPI.uploadMultiple(fd);
  showSuccess('Update submitted successfully!');
+ } catch (uploadErr) {
+ console.error('Attachment upload failed:', uploadErr);
+ showError('Update submitted, but file attachments failed to upload');
+ }
+ } else {
+ showSuccess('Update submitted successfully!');
+ }
  // Reset form
  setSelectedProject('');
  setSubmissionType('progress');
  setSubmissionDescription('');
  setSubmissionProgress(0);
+ setAttachmentFiles([]);
  setShowUploadModal(false);
  
- // Optionally reload projects to show updated progress
- const refreshRes = await projectAPI.getAll();
- if (refreshRes?.success) {
- setContractorProjects(refreshRes.data?.projects || []);
- }
+ // Reload this contractor's projects (scoped — never the full registry)
+ await loadProjects();
  } else {
  throw new Error(res?.message || 'Failed to submit update');
  }
@@ -241,7 +301,7 @@ export default function ContractorDashboard() {
  <p className="text-2xl font-bold text-soft-fg">{contractorProjects.length}</p>
  <div className="flex items-center text-sm text-green-700 dark:text-green-400 mt-1">
  <TrendingUp className="h-4 w-4 mr-1" />
- <span>All on track</span>
+ <span>{stalledCount > 0 ? `${stalledCount} delayed/on hold` : 'All on track'}</span>
  </div>
  </div>
  <div className="w-12 h-12 bg-soft rounded-lg flex items-center justify-center">
@@ -257,7 +317,7 @@ export default function ContractorDashboard() {
  <p className="text-2xl font-bold text-green-700 dark:text-green-400">{avgProgress}%</p>
  <div className="flex items-center text-sm text-green-700 dark:text-green-400 mt-1">
  <Target className="h-4 w-4 mr-1" />
- <span>Above target</span>
+ <span>Across {contractorProjects.length} project{contractorProjects.length === 1 ? '' : 's'}</span>
  </div>
  </div>
  <div className="w-12 h-12 bg-green-100 dark:bg-green-950/50 rounded-lg flex items-center justify-center">
@@ -312,26 +372,13 @@ export default function ContractorDashboard() {
  <Upload className="h-6 w-6" />
  <span className="text-sm">Submit Update</span>
  </button>
- <button className="btn-secondary flex flex-col items-center space-y-2 py-4">
- <Camera className="h-6 w-6" />
- <span className="text-sm">Upload Photos</span>
- </button>
- <button className="btn-secondary flex flex-col items-center space-y-2 py-4">
- <FileText className="h-6 w-6" />
- <span className="text-sm">Submit Report</span>
- </button>
- <button className="btn-secondary flex flex-col items-center space-y-2 py-4">
- <MessageSquare className="h-6 w-6" />
- <span className="text-sm">Contact M&E</span>
- </button>
- <button className="btn-secondary flex flex-col items-center space-y-2 py-4">
- <Download className="h-6 w-6" />
- <span className="text-sm">Download Forms</span>
- </button>
- <button className="btn-secondary flex flex-col items-center space-y-2 py-4">
- <Calendar className="h-6 w-6" />
- <span className="text-sm">Schedule Meeting</span>
- </button>
+ <Link
+ to="/map"
+ className="btn-secondary flex flex-col items-center space-y-2 py-4"
+ >
+ <MapPin className="h-6 w-6" />
+ <span className="text-sm">Project Map</span>
+ </Link>
  </div>
  </div>
 
@@ -371,18 +418,18 @@ export default function ContractorDashboard() {
  <div className="flex-1">
  <div className="flex items-center space-x-3 mb-2">
  <h3 className="text-lg font-semibold text-ink">{project.name}</h3>
- <span className={clsx('status-badge', statusStyles[project.status])}>
- {project.status}
+ <span className={clsx('status-badge', statusStyles[project.status] || 'status-not-started')}>
+ {statusLabels[project.status] || project.status}
  </span>
  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
- project.priority === 'High' ? 'bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300' :
- project.priority === 'Medium' ? 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-800 dark:text-yellow-300' :
+ project.priority === 'HIGH' || project.priority === 'CRITICAL' ? 'bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300' :
+ project.priority === 'MEDIUM' ? 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-800 dark:text-yellow-300' :
  'bg-green-100 dark:bg-green-950/50 text-green-800 dark:text-green-300'
  }`}>
  {project.priority} Priority
  </span>
  </div>
- <p className="text-sm text-muted mb-3">{project.id} • {project.category} • {project.lga}</p>
+ <p className="text-sm text-muted mb-3">{project.category} • {Array.isArray(project.lga) ? project.lga.join(', ') : project.lga}</p>
  </div>
  <div className="flex space-x-2">
  <Link
@@ -391,30 +438,27 @@ export default function ContractorDashboard() {
  >
  <Eye className="h-4 w-4" />
  </Link>
- <button className="text-muted hover:text-muted p-2 rounded-lg hover:bg-bg">
- <Edit className="h-4 w-4" />
- </button>
  </div>
  </div>
 
  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
  <div className="text-sm">
  <span className="text-muted">Budget:</span>
- <p className="font-semibold text-ink">{project.budget}</p>
+ <p className="font-semibold text-ink">{fmtNairaCompact(project.budget)}</p>
  </div>
  <div className="text-sm">
- <span className="text-muted">Manager:</span>
- <p className="font-semibold text-ink">{project.manager}</p>
+ <span className="text-muted">Contractor:</span>
+ <p className="font-semibold text-ink">{contractorProfile?.companyName || '—'}</p>
  </div>
  <div className="text-sm">
- <span className="text-muted">Due Date:</span>
- <p className="font-semibold text-ink">{new Date(project.dueDate).toLocaleDateString()}</p>
+ <span className="text-muted">Expected End:</span>
+ <p className="font-semibold text-ink">{project.expectedEndDate ? new Date(project.expectedEndDate).toLocaleDateString() : '—'}</p>
  </div>
  <div className="text-sm">
  <span className="text-muted">Quality Score:</span>
  <div className="flex items-center space-x-1">
  <Star className="h-4 w-4 text-yellow-500" />
- <span className="font-semibold text-ink">{project.qualityScore}/5</span>
+ <span className="font-semibold text-ink">{project.qualityScore != null ? `${Number(project.qualityScore).toFixed(1)}/5` : '—'}</span>
  </div>
  </div>
  </div>
@@ -432,19 +476,31 @@ export default function ContractorDashboard() {
  </div>
  </div>
 
+ {(() => {
+ const nextMilestone = nextMilestoneFor(project);
+ if (!nextMilestone) {
+ return (project.milestones || []).length > 0 ? (
+ <div className="bg-bg rounded-lg p-4">
+ <p className="text-sm text-muted">All milestones completed</p>
+ </div>
+ ) : null;
+ }
+ return (
  <div className="bg-bg rounded-lg p-4">
  <div className="flex items-center justify-between mb-2">
  <h4 className="font-medium text-ink">Next Milestone</h4>
- <span className="text-sm text-muted">{project.milestoneProgress}%</span>
+ <span className="text-sm text-muted">{nextMilestone.progress ?? 0}%</span>
  </div>
- <p className="text-sm text-ink mb-3">{project.nextMilestone}</p>
+ <p className="text-sm text-ink mb-3">{nextMilestone.name}</p>
  <div className="w-full bg-track rounded-full h-2">
  <div 
  className="bg-yellow-500 h-2 rounded-full"
- style={{ width: `${project.milestoneProgress}%` }}
+ style={{ width: `${nextMilestone.progress ?? 0}%` }}
  />
  </div>
  </div>
+ );
+ })()}
  </div>
  ))}
  </div>
@@ -453,53 +509,49 @@ export default function ContractorDashboard() {
  {/* Milestones Tab */}
  {activeTab === 'milestones' && (
  <div className="space-y-6">
- <div className="flex items-center justify-between">
  <h3 className="text-lg font-semibold text-ink">Milestone Progress</h3>
- <button className="btn-primary flex items-center space-x-2">
- <Plus className="h-4 w-4" />
- <span>Submit Milestone</span>
- </button>
- </div>
 
- {contractorProjects.map((project) => (
+ {contractorProjects.map((project) => {
+ const milestones = project.milestones || [];
+ return (
  <div key={project.id} className="border border-border rounded-lg p-6">
  <h4 className="font-semibold text-ink mb-4">{project.name}</h4>
+ {milestones.length === 0 ? (
+ <p className="text-sm text-muted">No milestones defined for this project yet.</p>
+ ) : (
  <div className="space-y-4">
- {Array.from({ length: project.totalMilestones }, (_, i) => (
- <div key={i} className="flex items-center space-x-4">
+ {milestones.map((m, i) => (
+ <div key={m.id || i} className="flex items-center space-x-4">
  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
- i < project.completedMilestones ? 'bg-green-500 text-white' :
- i === project.completedMilestones ? 'bg-yellow-500 text-white' :
+ m.status === 'COMPLETED' ? 'bg-green-500 text-white' :
+ m.status === 'IN_PROGRESS' ? 'bg-yellow-500 text-white' :
+ m.status === 'CANCELLED' ? 'bg-track text-muted line-through' :
  'bg-track text-muted'
  }`}>
- {i < project.completedMilestones ? (
+ {m.status === 'COMPLETED' ? (
  <CheckCircle className="h-4 w-4" />
  ) : (
  <span>{i + 1}</span>
  )}
  </div>
  <div className="flex-1">
- <p className="font-medium text-ink">
- {i === 0 ? 'Project Initiation' :
- i === 1 ? 'Foundation & Preparation' :
- i === 2 ? 'Main Construction Phase' :
- i === 3 ? 'Quality Testing' :
- 'Final Completion'}
- </p>
+ <p className="font-medium text-ink">{m.name}</p>
  <p className="text-sm text-muted">
- {i < project.completedMilestones ? 'Completed' :
- i === project.completedMilestones ? 'In Progress' :
- 'Pending'}
+ {statusLabels[m.status] || m.status}
+ {m.dueDate ? ` — due ${new Date(m.dueDate).toLocaleDateString()}` : ''}
+ {m.status === 'IN_PROGRESS' && m.progress != null ? ` (${m.progress}%)` : ''}
  </p>
  </div>
- {i < project.completedMilestones && (
- <span className="text-green-700 dark:text-green-400 text-sm">✓ Approved</span>
+ {m.status === 'COMPLETED' && (
+ <span className="text-green-700 dark:text-green-400 text-sm">✓ Completed</span>
  )}
  </div>
  ))}
  </div>
+ )}
  </div>
- ))}
+ );
+ })}
  </div>
  )}
 
@@ -507,12 +559,12 @@ export default function ContractorDashboard() {
  {activeTab === 'activity' && (
  <div className="space-y-4">
  <h3 className="text-lg font-semibold text-ink">Recent Activity</h3>
- {recentActivities.map((activity) => {
- const Icon = activity.icon;
- return (
+ {recentActivities.length === 0 ? (
+ <p className="text-sm text-muted">No submissions yet — use "Submit Update" to log your first progress report.</p>
+ ) : recentActivities.map((activity) => (
  <div key={activity.id} className="flex items-start space-x-4 p-4 bg-bg rounded-lg">
- <div className={`p-2 rounded-lg ${activity.color}`}>
- <Icon className="h-5 w-5" />
+ <div className="p-2 rounded-lg bg-soft">
+ <FileText className="h-5 w-5 text-soft-fg" />
  </div>
  <div className="flex-1">
  <div className="flex items-center justify-between">
@@ -520,21 +572,19 @@ export default function ContractorDashboard() {
  <span className="text-sm text-muted">{activity.date}</span>
  </div>
  <p className="text-sm text-muted mt-1">{activity.project}</p>
- <p className="text-sm text-ink mt-1">{activity.description}</p>
  <div className="mt-2">
  <span className={clsx(
  'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
- activity.status === 'Approved' ? 'bg-green-100 dark:bg-green-950/50 text-green-800 dark:text-green-300' :
- activity.status === 'Under Review' ? 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-800 dark:text-yellow-300' :
- 'bg-soft text-brand'
+ activity.status === 'APPROVED' ? 'bg-green-100 dark:bg-green-950/50 text-green-800 dark:text-green-300' :
+ activity.status === 'REJECTED' || activity.status === 'FLAGGED' ? 'bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300' :
+ 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-800 dark:text-yellow-300'
  )}>
  {activity.status}
  </span>
  </div>
  </div>
  </div>
- );
- })}
+ ))}
  </div>
  )}
 
@@ -542,7 +592,9 @@ export default function ContractorDashboard() {
  {activeTab === 'deadlines' && (
  <div className="space-y-4">
  <h3 className="text-lg font-semibold text-ink">Upcoming Deadlines</h3>
- {upcomingDeadlines.map((deadline, index) => (
+ {upcomingDeadlines.length === 0 ? (
+ <p className="text-sm text-muted">No upcoming milestone deadlines.</p>
+ ) : upcomingDeadlines.map((deadline, index) => (
  <div key={index} className={`p-4 rounded-lg border-l-4 ${
  deadline.status === 'at-risk' ? 'bg-red-50 dark:bg-red-950/40 border-red-500' :
  deadline.status === 'ahead' ? 'bg-green-50 dark:bg-green-950/40 border-green-500' :
@@ -560,9 +612,9 @@ export default function ContractorDashboard() {
  deadline.status === 'ahead' ? 'text-green-700' :
  'text-yellow-700 dark:text-yellow-400'
  }`}>
- {deadline.daysLeft} days
+ {deadline.daysLeft < 0 ? `${Math.abs(deadline.daysLeft)} days overdue` : `${deadline.daysLeft} days`}
  </p>
- <p className="text-sm text-muted">remaining</p>
+ <p className="text-sm text-muted">{deadline.daysLeft < 0 ? '' : 'remaining'}</p>
  </div>
  </div>
  </div>
@@ -653,11 +705,18 @@ export default function ContractorDashboard() {
  </label>
  <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
  <Camera className="h-12 w-12 text-muted mx-auto mb-3" />
- <p className="text-muted mb-2">Drag and drop files here, or click to select</p>
- <p className="text-sm text-muted">PNG, JPG, PDF up to 10MB each</p>
- <button className="mt-3 btn-secondary">
- Choose Files
- </button>
+ <p className="text-muted mb-2">Attach photos or documents to this update</p>
+ <p className="text-sm text-muted">PNG, JPG, PDF up to 10MB each — max 10 files</p>
+ <input
+ type="file"
+ multiple
+ accept="image/png,image/jpeg,application/pdf"
+ onChange={(e) => setAttachmentFiles(Array.from(e.target.files || []).slice(0, 10))}
+ className="mt-3 text-sm text-muted"
+ />
+ {attachmentFiles.length > 0 && (
+ <p className="mt-2 text-sm text-ink">{attachmentFiles.length} file{attachmentFiles.length === 1 ? '' : 's'} selected</p>
+ )}
  </div>
  </div>
 
@@ -680,6 +739,7 @@ export default function ContractorDashboard() {
  setSubmissionType('progress');
  setSubmissionDescription('');
  setSubmissionProgress(0);
+ setAttachmentFiles([]);
  }}
  className="flex-1 btn-secondary"
  disabled={submitting}

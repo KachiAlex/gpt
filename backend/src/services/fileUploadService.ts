@@ -29,9 +29,35 @@ export class FileUploadService {
       .toLowerCase();
   }
 
-  private sanitizeExtension(name: string): string {
-    const ext = path.extname(name).toLowerCase();
-    return /^\.[a-z0-9]{1,10}$/.test(ext) ? ext : '';
+  // Stored extension is derived from the *validated* MIME type, never from
+  // the client-supplied filename — otherwise `evil.html` uploaded as
+  // "image/png" would be served as text/html from /uploads/public (XSS).
+  private static readonly MIME_EXT: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'application/pdf': '.pdf',
+    'application/msword': '.doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/vnd.ms-excel': '.xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+    'text/plain': '.txt',
+    'application/zip': '.zip',
+    'video/mp4': '.mp4',
+    'video/avi': '.avi',
+    'video/quicktime': '.mov',
+  };
+
+  private extensionFor(mimeType: string, originalName: string): string {
+    if (FileUploadService.MIME_EXT[mimeType]) {
+      return FileUploadService.MIME_EXT[mimeType];
+    }
+    // Unknown type → keep a benign extension only; anything that could be
+    // served as active content (.html/.svg/.js…) is dropped entirely.
+    const ext = path.extname(originalName).toLowerCase();
+    const SAFE = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.zip', '.mp4', '.avi', '.mov', '.csv']);
+    return SAFE.has(ext) ? ext : '';
   }
 
   private buildFolder(
@@ -59,7 +85,7 @@ export class FileUploadService {
     submissionId?: string,
     isPublic: boolean = false
   ): Promise<UploadResult> {
-    const fileName = `${crypto.randomUUID()}${this.sanitizeExtension(file.originalname)}`;
+    const fileName = `${crypto.randomUUID()}${this.extensionFor(file.mimetype, file.originalname)}`;
     const folder = this.buildFolder(isPublic, category, projectId, submissionId);
     const absoluteDir = path.resolve(uploadRoot, folder);
     if (!absoluteDir.startsWith(uploadRoot + path.sep)) {

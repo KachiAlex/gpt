@@ -1,17 +1,22 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { contractorAPI, authAPI } from '../services/api';
+import { useAuth } from './AuthContext';
 import { fmtNaira } from '../utils/statusMap';
 
 const ContractorsContext = createContext();
 
+const GOV_ROLES = new Set(['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER']);
+
 export const ContractorsProvider = ({ children }) => {
+  const { user } = useAuth();
   const [contractors, setContractors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const loadContractors = async () => {
-    // Check cache first (5 minute cache)
-    const cacheKey = 'contractors_cache';
+    // Check cache first (5 minute cache) — keyed per user so a previous
+    // session's list can't leak into the next login
+    const cacheKey = `contractors_cache_${user?.id || 'anon'}`;
     const cacheTime = 5 * 60 * 1000; // 5 minutes
     
     const cached = localStorage.getItem(cacheKey);
@@ -33,7 +38,7 @@ export const ContractorsProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       console.log('Loading contractors from API...');
-      const response = await contractorAPI.getAll();
+      const response = await contractorAPI.getAll({ limit: 100 });
       console.log('Load contractors response:', response);
       
       if (response.success && response.data && response.data.contractors) {
@@ -104,26 +109,18 @@ export const ContractorsProvider = ({ children }) => {
     }
   };
 
-  // Load contractors from API on mount - only if authenticated
+  // Reload whenever the signed-in user changes — the providers mount before
+  // login, so keying off `user` (not mount) is what makes the list appear
+  // after an in-app login. Only government roles may read the registry.
   useEffect(() => {
-    // Check if we have an auth token before trying to load contractors
-    const authToken = localStorage.getItem('gpt_auth');
-    if (authToken) {
-      try {
-        const parsed = JSON.parse(authToken);
-        if (parsed.token) {
-          console.log('Auth token found, loading contractors...');
-          loadContractors();
-          return;
-        }
-      } catch (e) {
-        console.log('Invalid auth data, skipping contractors load');
-      }
+    if (user && GOV_ROLES.has(user.role)) {
+      loadContractors();
+    } else {
+      setContractors([]);
+      setLoading(false);
     }
-    console.log('No auth token, skipping contractors load');
-    // No auth token, just mark as loaded
-    setLoading(false);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.role]);
 
   const addContractor = async (contractorData) => {
     try {
@@ -163,8 +160,8 @@ export const ContractorsProvider = ({ children }) => {
       
       if (response.success) {
         // Invalidate cache
-        localStorage.removeItem('contractors_cache');
-        localStorage.removeItem('dashboard_stats_cache');
+        localStorage.removeItem(`contractors_cache_${user?.id || 'anon'}`);
+        localStorage.removeItem(`dashboard_stats_cache_${user?.id || 'anon'}`);
         await loadContractors();
         return response.data.contractor;
       }
@@ -180,8 +177,8 @@ export const ContractorsProvider = ({ children }) => {
       const response = await contractorAPI.update(id, updates);
       if (response.success) {
         // Invalidate cache
-        localStorage.removeItem('contractors_cache');
-        localStorage.removeItem('dashboard_stats_cache');
+        localStorage.removeItem(`contractors_cache_${user?.id || 'anon'}`);
+        localStorage.removeItem(`dashboard_stats_cache_${user?.id || 'anon'}`);
         await loadContractors();
         return response.data.contractor;
       }

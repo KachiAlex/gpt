@@ -172,7 +172,7 @@ export default function Dashboard() {
                         <td className="px-6 py-3.5 font-semibold">
                           <Link to={`/projects/${p.id}`} className="hover:underline">{p.name}</Link>
                         </td>
-                        <td className="px-3 py-3.5 text-muted">{p.lga}</td>
+                        <td className="px-3 py-3.5 text-muted">{Array.isArray(p.lga) ? p.lga.join(', ') : p.lga}</td>
                         <td className="px-3 py-3.5"><StatusPill status={p.status} /></td>
                         <td className="px-3 py-3.5 text-right font-semibold whitespace-nowrap">{fmtNaira(p.allocatedBudget || p.budget)}</td>
                         <td className="pl-3 pr-6 py-3.5">

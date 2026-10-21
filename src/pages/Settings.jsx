@@ -317,8 +317,9 @@ export default function Settings() {
  }
  }
 
- // Prepare updated user data with profile image and preferences
- const updatedUserData = { ...formData };
+ // Prepare updated user data with profile image and preferences —
+ // email is the sign-in identity and is read-only in the form
+ const { email: _ignored, ...updatedUserData } = { ...formData };
  if (uploadedImageUrl) {
  updatedUserData.profileImage = uploadedImageUrl;
  }
@@ -586,11 +587,11 @@ export default function Settings() {
  <input
  type="email"
  value={formData.email}
- onChange={(e) => handleInputChange('email', e.target.value)}
- className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
- placeholder="Enter email address"
+ readOnly
+ className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-bg text-muted cursor-not-allowed"
  />
  </div>
+ <p className="text-xs text-muted mt-1">Email is your sign-in identity and can't be changed here — contact an administrator.</p>
  </div>
  <div>
  <label className="block text-sm font-medium text-ink mb-2">
@@ -1346,60 +1347,6 @@ export default function Settings() {
 
  {activeTab === 'system' && (
  <div className="space-y-6">
- <div className="card">
- <h3 className="text-lg font-semibold text-ink mb-6">Data Management</h3>
- 
- <div className="space-y-4">
- <div className="flex items-center justify-between p-4 bg-soft rounded-lg">
- <div>
- <h4 className="text-sm font-medium text-blue-900">Export Data</h4>
- <p className="text-sm text-soft-fg">Download your account data and project information</p>
- </div>
- <button className="btn-secondary">
- <Download className="h-4 w-4 mr-2" />
- Export
- </button>
- </div>
- 
- <div className="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-950/40 rounded-lg">
- <div>
- <h4 className="text-sm font-medium text-yellow-900">Backup Settings</h4>
- <p className="text-sm text-yellow-700 dark:text-yellow-400">Create a backup of your preferences and data</p>
- </div>
- <button className="btn-secondary">
- <Upload className="h-4 w-4 mr-2" />
- Backup
- </button>
- </div>
- </div>
- </div>
-
- <div className="card">
- <h3 className="text-lg font-semibold text-ink mb-6">Account Actions</h3>
- 
- <div className="space-y-4">
- <div className="p-4 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-200">
- <div className="flex items-start space-x-3">
- <AlertTriangle className="h-5 w-5 text-red-700 dark:text-red-400 mt-0.5" />
- <div className="flex-1">
- <h4 className="text-sm font-medium text-red-900">Danger Zone</h4>
- <p className="text-sm text-red-700 dark:text-red-400 mb-3">
- These actions are irreversible. Please proceed with caution.
- </p>
- <div className="space-y-2">
- <button className="text-red-700 dark:text-red-400 hover:text-red-700 dark:text-red-400 text-sm font-medium">
- Deactivate Account
- </button>
- <br />
- <button className="text-red-700 dark:text-red-400 hover:text-red-700 dark:text-red-400 text-sm font-medium">
- Delete Account
- </button>
- </div>
- </div>
- </div>
- </div>
- </div>
- </div>
 
  <div className="card">
  <h3 className="text-lg font-semibold text-ink mb-6">System Information</h3>

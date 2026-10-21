@@ -9,7 +9,6 @@ import {
  Calendar, 
  DollarSign,
  User,
- MoreHorizontal,
  FolderOpen,
  AlertTriangle,
  Globe
@@ -17,7 +16,8 @@ import {
 import { Link, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { projectAPI } from '../services/api';
-import { collectAreas, areaLabel, areasLabel } from '../utils/statusMap';
+import { useAuth } from '../contexts/AuthContext';
+import { collectAreas, areaLabel, areasLabel, fmtNairaCompact, fmtDate } from '../utils/statusMap';
 
 const statusMap = {
  NOT_STARTED: 'Not Started',
@@ -31,10 +31,7 @@ const statusMap = {
 
 const statusOptions = [
  { value: '', label: 'All Statuses' },
- { value: 'NOT_STARTED', label: 'Not Started' },
- { value: 'IN_PROGRESS', label: 'In Progress' },
- { value: 'COMPLETED', label: 'Completed' },
- { value: 'DELAYED', label: 'Delayed' },
+ ...Object.entries(statusMap).map(([value, label]) => ({ value, label })),
 ];
 
 const statusStyles = {
@@ -46,16 +43,23 @@ const statusStyles = {
  CANCELLED: 'status-delayed',
 };
 
+const PAGE_SIZE = 20;
+
 export default function Projects() {
+ const { user } = useAuth();
  const [searchParams] = useSearchParams();
  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+ const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
  const [statusFilter, setStatusFilter] = useState('');
  const [selectedLGAs, setSelectedLGAs] = useState([]); // Changed to array for multiple selection
  const [showFilters, setShowFilters] = useState(false);
  const [showLGADropdown, setShowLGADropdown] = useState(false);
  const [projects, setProjects] = useState([]);
+ const [pagination, setPagination] = useState(null);
+ const [page, setPage] = useState(1);
  const [loading, setLoading] = useState(true);
  const [error, setError] = useState('');
+ const [allLgaOptions, setAllLgaOptions] = useState([]);
 
  // Sync search box when arriving via header search (/projects?search=...)
  useEffect(() => {
@@ -63,39 +67,63 @@ export default function Projects() {
  if (q !== null) setSearchTerm(q);
  }, [searchParams]);
 
+ // Debounce the search box so we don't fire a request per keystroke
+ useEffect(() => {
+ const t = setTimeout(() => {
+ setDebouncedSearch(searchTerm);
+ setPage(1);
+ }, 350);
+ return () => clearTimeout(t);
+ }, [searchTerm]);
+
+ // Server-side filtering + pagination — client-side filters would only see
+ // the current page, silently hiding every other result
  useEffect(() => {
  let isMounted = true;
  const load = async () => {
- // Check cache first (5 minute cache for projects list)
- const cacheKey = 'projects_list_cache';
- const cacheTime = 5 * 60 * 1000; // 5 minutes
+ const filters = { page, limit: PAGE_SIZE };
+ if (statusFilter) filters.status = statusFilter;
+ if (debouncedSearch) filters.search = debouncedSearch;
+ if (selectedLGAs.length > 0) filters.lga = selectedLGAs;
+
+ // Cache only the default view (page 1, no filters), keyed per user
+ const isDefaultView = page === 1 && !statusFilter && !debouncedSearch && selectedLGAs.length === 0;
+ const cacheKey = `projects_list_cache_${user?.id || 'anon'}`;
  try {
+ if (isDefaultView) {
  const cached = localStorage.getItem(cacheKey);
  if (cached) {
  const { data, timestamp } = JSON.parse(cached);
- if (Date.now() - timestamp < cacheTime) {
+ if (Date.now() - timestamp < 5 * 60 * 1000) {
  if (isMounted) {
- setProjects(data);
+ setProjects(data.projects);
+ setPagination(data.pagination);
+ setAllLgaOptions(data.lgaOptions || []);
  setLoading(false);
  return;
  }
  }
  }
+ }
 
- const res = await projectAPI.getAll();
+ const res = await projectAPI.getAll(filters);
  if (res?.success && isMounted) {
  const projectsData = res.data?.projects || [];
+ const pg = res.data?.pagination || null;
  setProjects(projectsData);
- // Cache the result
+ setPagination(pg);
+ if (isDefaultView) {
+ const lgaOptions = collectAreas(projectsData);
+ setAllLgaOptions(lgaOptions);
  localStorage.setItem(cacheKey, JSON.stringify({
- data: projectsData,
+ data: { projects: projectsData, pagination: pg, lgaOptions },
  timestamp: Date.now()
  }));
+ }
  }
  } catch (e) {
  if (isMounted) {
  let errorMessage = e.message || 'Failed to load projects';
- // Provide user-friendly error messages
  if (e.message && e.message.includes('Service Unavailable')) {
  errorMessage = 'Unable to connect to the server. Please check if the API server is running.';
  } else if (e.message && e.message.includes('timeout')) {
@@ -107,29 +135,32 @@ export default function Projects() {
  if (isMounted) setLoading(false);
  }
  };
+ setLoading(true);
+ setError('');
  load();
  return () => { isMounted = false; };
- }, []);
+ }, [page, statusFilter, debouncedSearch, selectedLGAs, user?.id]);
 
- const lgaOptions = collectAreas(projects);
+ const filteredProjects = projects;
+ const lgaOptions = allLgaOptions;
 
- const filteredProjects = projects.filter(project => {
- const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
- (project.contractor || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
- (project.id || '').toLowerCase().includes(searchTerm.toLowerCase());
- const matchesStatus = !statusFilter || project.status === statusFilter;
- // Show all when no areas selected, otherwise match project.lga (array or string) against the selection
- let matchesLGA = true;
- if (selectedLGAs.length > 0) {
- if (Array.isArray(project.lga)) {
- matchesLGA = project.lga.some(lga => selectedLGAs.includes(lga));
- } else {
- matchesLGA = selectedLGAs.includes(project.lga);
- }
- }
- 
- return matchesSearch && matchesStatus && matchesLGA;
- });
+ const exportCsv = () => {
+ const rows = [
+ ['ID', 'Name', 'Category', 'Status', 'Progress %', 'Budget', 'Contractor', 'LGA', 'Start', 'Expected End'],
+ ...filteredProjects.map((p) => [
+ p.id, p.name, p.category, statusMap[p.status] || p.status, p.progress ?? '',
+ p.budget ?? '', p.contractor || '', Array.isArray(p.lga) ? p.lga.join('; ') : p.lga || '',
+ p.startDate ? fmtDate(p.startDate) : '', p.expectedEndDate ? fmtDate(p.expectedEndDate) : '',
+ ]),
+ ];
+ const csv = rows.map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+ const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+ const a = document.createElement('a');
+ a.href = url;
+ a.download = `projects-page-${page}.csv`;
+ a.click();
+ URL.revokeObjectURL(url);
+ };
 
  const handleLGAToggle = (lga) => {
  setSelectedLGAs(prev => 
@@ -137,6 +168,7 @@ export default function Projects() {
  ? prev.filter(item => item !== lga) 
  : [...prev, lga]
  );
+ setPage(1);
  };
 
  return (
@@ -148,7 +180,7 @@ export default function Projects() {
  <p className="text-lg text-muted">Manage and monitor all projects.</p>
  </div>
  <div className="mt-4 sm:mt-0 flex space-x-4">
- <button className="btn-secondary flex items-center space-x-2">
+ <button onClick={exportCsv} className="btn-secondary flex items-center space-x-2" disabled={filteredProjects.length === 0}>
  <Download className="h-4 w-4" />
  <span>Export</span>
  </button>
@@ -190,7 +222,7 @@ export default function Projects() {
  )}>
  <select
  value={statusFilter}
- onChange={(e) => setStatusFilter(e.target.value)}
+ onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
  className="border border-border rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
  >
  {statusOptions.map(option => (
@@ -235,29 +267,29 @@ export default function Projects() {
  </div>
  </div>
 
- {/* Projects Overview Stats */}
+ {/* Projects Overview Stats — scoped to the current filter set */}
  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
  <div className="card text-center">
- <h3 className="text-3xl font-bold text-ink">{projects.length}</h3>
+ <h3 className="text-3xl font-bold text-ink">{pagination?.total ?? projects.length}</h3>
  <p className="text-base text-muted mt-2">Total Projects</p>
  </div>
  <div className="card text-center">
  <h3 className="text-3xl font-bold text-green-700 dark:text-green-400">
- {projects.filter(p => p.status === 'COMPLETED' || p.status === 'Completed').length}
+ {projects.filter(p => p.status === 'COMPLETED').length}
  </h3>
- <p className="text-base text-muted mt-2">Completed</p>
+ <p className="text-base text-muted mt-2">Completed (this page)</p>
  </div>
  <div className="card text-center">
  <h3 className="text-3xl font-bold text-yellow-700 dark:text-yellow-400">
- {projects.filter(p => p.status === 'IN_PROGRESS' || p.status === 'In Progress').length}
+ {projects.filter(p => p.status === 'IN_PROGRESS').length}
  </h3>
- <p className="text-base text-muted mt-2">In Progress</p>
+ <p className="text-base text-muted mt-2">In Progress (this page)</p>
  </div>
  <div className="card text-center">
  <h3 className="text-3xl font-bold text-red-700 dark:text-red-400">
- {projects.filter(p => p.status === 'DELAYED' || p.status === 'Delayed').length}
+ {projects.filter(p => p.status === 'DELAYED' || p.status === 'ON_HOLD').length}
  </h3>
- <p className="text-base text-muted mt-2">Delayed</p>
+ <p className="text-base text-muted mt-2">Delayed (this page)</p>
  </div>
  </div>
 
@@ -307,15 +339,15 @@ export default function Projects() {
  {project.name}
  {project.isPublic && <Globe className="w-4 h-4 text-green-600" aria-label="Public" />}
  </p>
- <p className="text-sm text-muted mt-1">Updated: {project.lastUpdate}</p>
+ <p className="text-sm text-muted mt-1">Updated: {fmtDate(project.updatedAt)}</p>
  </div>
  </td>
  <td className="py-5 px-4 text-base text-muted">
  {Array.isArray(project.lga) ? project.lga.join(', ') : project.lga}
  </td>
- <td className="py-5 px-4 text-base text-muted">{project.contractor}</td>
- <td className="py-5 px-4 text-base text-muted">{project.timeline}</td>
- <td className="py-5 px-4 text-base font-medium text-ink">{project.budget}</td>
+ <td className="py-5 px-4 text-base text-muted">{project.contractor || '—'}</td>
+ <td className="py-5 px-4 text-base text-muted">{project.startDate && project.expectedEndDate ? `${fmtDate(project.startDate)} – ${fmtDate(project.expectedEndDate)}` : '—'}</td>
+ <td className="py-5 px-4 text-base font-medium text-ink">{fmtNairaCompact(project.budget)}</td>
  <td className="py-5 px-4">
  <span className={clsx('status-badge', statusStyles[project.status])}>
  {statusMap[project.status] || project.status}
@@ -328,9 +360,7 @@ export default function Projects() {
  className={clsx(
  'h-3 rounded-full',
  project.status === 'COMPLETED' ? 'bg-green-500' :
- project.status === 'DELAYED' ? 'bg-red-500' : 
- project.status === 'Completed' ? 'bg-green-500' :
- project.status === 'Delayed' ? 'bg-red-500' : 'bg-yellow-500'
+ project.status === 'DELAYED' || project.status === 'ON_HOLD' ? 'bg-red-500' : 'bg-yellow-500'
  )}
  style={{ width: `${project.progress}%` }}
  />
@@ -346,9 +376,6 @@ export default function Projects() {
  >
  <Eye className="h-5 w-5" />
  </Link>
- <button className="text-muted hover:text-muted p-1 rounded">
- <MoreHorizontal className="h-4 w-4" />
- </button>
  </div>
  </td>
  </tr>
@@ -385,11 +412,11 @@ export default function Projects() {
  </div>
  <div className="flex items-center text-muted">
  <DollarSign className="h-3 w-3 mr-1" />
- {project.budget}
+ {fmtNairaCompact(project.budget)}
  </div>
  <div className="flex items-center text-muted">
  <Calendar className="h-3 w-3 mr-1" />
- {project.lastUpdate}
+ {fmtDate(project.updatedAt)}
  </div>
  </div>
  
@@ -402,8 +429,8 @@ export default function Projects() {
  <div 
  className={clsx(
  'h-2 rounded-full',
- project.status === 'Completed' ? 'bg-green-500' :
- project.status === 'Delayed' ? 'bg-red-500' : 'bg-yellow-500'
+ project.status === 'COMPLETED' ? 'bg-green-500' :
+ project.status === 'DELAYED' ? 'bg-red-500' : 'bg-yellow-500'
  )}
  style={{ width: `${project.progress}%` }}
  />
@@ -423,7 +450,7 @@ export default function Projects() {
  ))}
  </div>
 
- {filteredProjects.length === 0 && (
+ {filteredProjects.length === 0 && !loading && (
  <div className="text-center py-12">
  <div className="text-muted mb-4">
  <FolderOpen className="h-12 w-12 mx-auto" />
@@ -434,6 +461,31 @@ export default function Projects() {
  <Plus className="h-4 w-4" />
  <span>Add New Project</span>
  </Link>
+ </div>
+ )}
+
+ {/* Pagination — filters run server-side so paging is real */}
+ {pagination && pagination.pages > 1 && (
+ <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+ <p className="text-sm text-muted">
+ Page {pagination.page} of {pagination.pages} — {pagination.total} project{pagination.total === 1 ? '' : 's'}
+ </p>
+ <div className="flex space-x-2">
+ <button
+ onClick={() => setPage((p) => Math.max(1, p - 1))}
+ disabled={page <= 1}
+ className="btn-secondary text-sm py-1.5 disabled:opacity-50"
+ >
+ Previous
+ </button>
+ <button
+ onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+ disabled={page >= pagination.pages}
+ className="btn-secondary text-sm py-1.5 disabled:opacity-50"
+ >
+ Next
+ </button>
+ </div>
  </div>
  )}
  </div>

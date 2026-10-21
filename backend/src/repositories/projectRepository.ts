@@ -35,14 +35,17 @@ const mapProject = (row: any): DbProject => {
   const project = rowToCamelCase(row);
   return {
     ...project,
+    // List queries LEFT JOIN contractor_profiles → company name surfaced as
+    // `contractor` for table columns/search
+    contractor: project.contractorName ?? undefined,
     lga: Array.isArray(project.lga) ? project.lga : [],
     budget: num(project.budget),
     allocatedBudget: num(project.allocatedBudget),
     spentBudget: num(project.spentBudget),
     progress: num(project.progress),
-    beneficiaries: num(project.beneficiaries),
+    // beneficiaries + safety_compliance are TEXT columns ("50,000 residents",
+    // "Not Started") — num() would turn them into NaN
     qualityScore: num(project.qualityScore),
-    safetyCompliance: num(project.safetyCompliance),
     weatherDelay: num(project.weatherDelay),
     startDate: project.startDate ? new Date(project.startDate) : null,
     expectedEndDate: project.expectedEndDate ? new Date(project.expectedEndDate) : null,
@@ -102,13 +105,44 @@ const buildProjectWhereClause = (options: ListProjectsParams) => {
     const idx = params.length;
     clauses.push(`(
       LOWER(p.name) LIKE $${idx} OR
-      LOWER(p.description) LIKE $${idx}
+      LOWER(p.description) LIKE $${idx} OR
+      LOWER(COALESCE((SELECT cp.company_name FROM contractor_profiles cp WHERE cp.id = p.contractor_id), '')) LIKE $${idx}
     )`);
   }
 
   const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
   return { whereClause, params };
 };
+
+// Shared milestone→project rollup. Auto-complete fires only from live states
+// (manual DELAYED/ON_HOLD/CANCELLED survive); demotion requires actual
+// regression (ms.done < ms.total) so editing a finished milestone doesn't
+// bounce the project back to IN_PROGRESS. Parameter $1 = project id.
+export const PROJECT_PROGRESS_RECOMPUTE_SQL = `
+  WITH ms AS (
+    SELECT COALESCE(AVG(progress), 0) AS avg_progress,
+           COUNT(*) AS total,
+           COUNT(*) FILTER (WHERE status = 'COMPLETED') AS done
+    FROM milestones
+    WHERE project_id = $1 AND status <> 'CANCELLED'
+  )
+  UPDATE projects p
+  SET progress = ROUND(ms.avg_progress)::int,
+      status = CASE
+        WHEN ms.total > 0 AND ms.done = ms.total
+             AND p.status IN ('NOT_STARTED', 'IN_PROGRESS', 'NEAR_COMPLETION') THEN 'COMPLETED'
+        WHEN p.status = 'COMPLETED' AND ms.total > 0 AND ms.done < ms.total THEN 'IN_PROGRESS'
+        ELSE p.status
+      END,
+      actual_end_date = CASE
+        WHEN ms.total > 0 AND ms.done = ms.total
+             AND p.status IN ('NOT_STARTED', 'IN_PROGRESS', 'NEAR_COMPLETION') THEN COALESCE(p.actual_end_date, NOW())
+        ELSE p.actual_end_date
+      END,
+      updated_at = NOW()
+  FROM ms
+  WHERE p.id = $1 AND ms.total > 0
+`;
 
 export const projectRepository = {
   async listWithFilters(options: ListProjectsParams): Promise<{ projects: DbProject[]; total: number }> {
@@ -124,8 +158,9 @@ export const projectRepository = {
 
     const dataParams = [...params, limit, offset];
     const result = await query(
-      `SELECT ${projectColumns}
+      `SELECT ${projectColumns}, cp.company_name AS contractor_name
        FROM projects p
+       LEFT JOIN contractor_profiles cp ON cp.id = p.contractor_id
        ${whereClause}
        ORDER BY p.created_at DESC
        LIMIT $${limitIndex}
@@ -251,34 +286,7 @@ export const projectRepository = {
    * COMPLETED project drops back to IN_PROGRESS.
    */
   async recomputeProjectProgress(projectId: string): Promise<void> {
-    await query(
-      `WITH ms AS (
-         SELECT COALESCE(AVG(progress), 0) AS avg_progress,
-                COUNT(*) AS total,
-                COUNT(*) FILTER (WHERE status = 'COMPLETED') AS done
-         FROM milestones
-         WHERE project_id = $1 AND status <> 'CANCELLED'
-       )
-       UPDATE projects p
-       SET progress = ROUND(ms.avg_progress)::int,
-           status = CASE
-             -- Auto-complete only from a live state — a manual DELAYED,
-             -- ON_HOLD or CANCELLED must survive a milestone edit.
-             WHEN ms.total > 0 AND ms.done = ms.total
-                  AND p.status IN ('PLANNING', 'IN_PROGRESS') THEN 'COMPLETED'
-             WHEN p.status = 'COMPLETED' AND ms.total > 0 THEN 'IN_PROGRESS'
-             ELSE p.status
-           END,
-           actual_end_date = CASE
-             WHEN ms.total > 0 AND ms.done = ms.total
-                  AND p.status IN ('PLANNING', 'IN_PROGRESS') THEN COALESCE(p.actual_end_date, NOW())
-             ELSE p.actual_end_date
-           END,
-           updated_at = NOW()
-       FROM ms
-       WHERE p.id = $1 AND ms.total > 0`,
-      [projectId]
-    );
+    await query(PROJECT_PROGRESS_RECOMPUTE_SQL, [projectId]);
   },
 
   async getRecentSubmissions(projectId: string, limit = 5): Promise<DbSubmissionSummary[]> {
@@ -321,7 +329,7 @@ export const projectRepository = {
         data.contractorId ?? null,
         data.projectManagerId ?? null,
         data.location ?? null,
-        data.isPublic ?? true,
+        data.isPublic ?? false,
       ]
     );
 

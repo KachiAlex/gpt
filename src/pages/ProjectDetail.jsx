@@ -95,7 +95,6 @@ export default function ProjectDetail() {
       name: project.name,
       description: project.description || '',
       status: project.status,
-      progress: project.progress,
       latitude: project.location?.lat ?? '',
       longitude: project.location?.lng ?? '',
     });
@@ -105,7 +104,7 @@ export default function ProjectDetail() {
   const saveEdit = async () => {
     setSaving(true);
     try {
-      const payload = { ...editForm, progress: Number(editForm.progress) };
+      const payload = { ...editForm };
       payload.location = payload.latitude !== '' && payload.longitude !== ''
         ? { lat: parseFloat(payload.latitude), lng: parseFloat(payload.longitude) }
         : null;
@@ -494,10 +493,6 @@ export default function ProjectDetail() {
                       <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="label" htmlFor="ep-progress">Progress %</label>
-                  <input id="ep-progress" type="number" min={0} max={100} className="input" value={editForm.progress ?? 0} onChange={(e) => setEditForm({ ...editForm, progress: e.target.value })} />
                 </div>
                 <div>
                   <label className="label" htmlFor="ep-lat">Latitude</label>

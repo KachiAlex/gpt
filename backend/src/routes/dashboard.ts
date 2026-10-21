@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireRoles } from '../middleware/auth';
 import { ProjectStatus, ProjectCategory, SubmissionStatus } from '../types/domain';
 import { projectRepository } from '../repositories/projectRepository';
 import { submissionRepository } from '../repositories/submissionRepository';
@@ -69,6 +69,11 @@ const fetchAllProjects = async (): Promise<DashboardProject[]> => {
 };
 
 const verifyToken = authenticate;
+
+// Dashboard endpoints expose aggregate financials across every project —
+// government/M&E staff only. Contractors have their own dashboard built
+// from scoped /api/projects calls; PUBLIC accounts use the public portal.
+router.use(verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER'));
 
 /**
  * GET /api/dashboard/stats

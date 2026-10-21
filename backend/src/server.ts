@@ -85,6 +85,7 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 app.use('/api/auth/mfa', authLimiter);
+app.use('/api/auth/mfa-verify', authLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -188,11 +189,21 @@ io.use((socket, next) => {
   }
   try {
     const payload = jwt.verify(token, config.jwtSecret) as { userId?: string; role?: string; purpose?: string };
-    if (!payload.userId || payload.purpose) {
+    if (!payload.userId || !payload.role || payload.purpose) {
       return next(new Error('Invalid token'));
     }
-    socket.data.user = { userId: payload.userId, role: payload.role };
-    return next();
+    // Same invariant as authenticate(): a deactivated/demoted account must
+    // lose socket access immediately, not keep role-gov for the token life.
+    pool.query('SELECT is_active, role FROM users WHERE id = $1', [payload.userId])
+      .then((result) => {
+        const user = result.rows[0];
+        if (!user || user.is_active === false) {
+          return next(new Error('Account is not active'));
+        }
+        socket.data.user = { userId: payload.userId, role: user.role };
+        return next();
+      })
+      .catch(() => next(new Error('Authentication failed')));
   } catch {
     return next(new Error('Invalid token'));
   }

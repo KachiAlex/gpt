@@ -84,6 +84,25 @@ router.patch('/:id', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req:
       return res.status(400).json({ success: false, message: 'Nothing to update — send isActive and/or role' });
     }
 
+    // Prevent locking the system out — never deactivate or demote the last
+    // remaining active GOVERNMENT_ADMIN.
+    const targetIsAdmin = target.role === 'GOVERNMENT_ADMIN';
+    const wouldDemote = updates.role !== undefined && updates.role !== 'GOVERNMENT_ADMIN';
+    const wouldDeactivate = updates.isActive === false;
+    if (targetIsAdmin && (wouldDemote || wouldDeactivate)) {
+      const otherAdmins = await query(
+        `SELECT COUNT(*)::int AS n FROM users
+         WHERE role = 'GOVERNMENT_ADMIN' AND is_active = true AND id <> $1`,
+        [id]
+      );
+      if ((otherAdmins.rows[0]?.n ?? 0) === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot remove the last active GOVERNMENT_ADMIN — promote another admin first',
+        });
+      }
+    }
+
     const sets: string[] = [];
     const vals: any[] = [];
     if (updates.isActive !== undefined) { sets.push(`is_active = $${vals.length + 1}`); vals.push(updates.isActive); }
@@ -194,11 +213,10 @@ router.put('/notifications/read-all', authenticate, async (req: Request, res: Re
 router.post(
   '/upload-profile-image',
   authenticate,
-  upload.any(),
+  upload.single('file'),
   async (req: Request, res: Response) => {
     try {
-      const files = (req.files as Express.Multer.File[]) || [];
-      const file = files[0];
+      const file = req.file;
       if (!file) {
         return res.status(400).json({ success: false, message: 'No file provided' });
       }

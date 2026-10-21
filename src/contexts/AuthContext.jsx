@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import PageLoader from '../components/Loading/PageLoader';
 import { authAPI } from '../services/api';
 import { connectSocket, disconnectSocket } from '../services/socket';
+import { clearAllCaches } from '../utils/cache';
 
 const AuthContext = createContext(null);
 
@@ -117,7 +118,18 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('gpt_auth');
+    // Drop every cached list so the next login can't see this user's data
+    clearAllCaches();
   };
+
+  // A 401 from any API call clears localStorage directly (api.js can't reach
+  // React state) — it fires this event so we sign out properly here.
+  useEffect(() => {
+    const onExpired = () => signOut();
+    window.addEventListener('auth:expired', onExpired);
+    return () => window.removeEventListener('auth:expired', onExpired);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const updateUser = (userData) => {
     const updatedUser = { ...user, ...userData };

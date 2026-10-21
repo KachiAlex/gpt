@@ -5,8 +5,9 @@ import {
   CreateSubmissionInput,
   UpdateSubmissionInput,
 } from '../types/models';
-import { NotificationType, SubmissionStatus } from '../types/domain';
+import { NotificationType, SubmissionStatus, SubmissionType, Priority } from '../types/domain';
 import { submissionRepository } from '../repositories/submissionRepository';
+import { query } from '../config/database';
 import { contractorRepository } from '../repositories/contractorRepository';
 import { projectRepository } from '../repositories/projectRepository';
 import { notificationRepository } from '../repositories/notificationRepository';
@@ -16,6 +17,15 @@ const router = Router();
 
 const verifyToken = authenticate;
 const requireMEOfficer = requireRoles('ME_OFFICER', 'GOVERNMENT_ADMIN');
+const GOV_ROLES = new Set(['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER']);
+
+// Read scoping: contractors only ever see their own submissions; PUBLIC
+// accounts get nothing internal (the public portal is their interface).
+const scopeContractorId = async (req: Request): Promise<string | null> => {
+  if (req.user!.role !== 'CONTRACTOR') return null;
+  const contractor = await contractorRepository.findByUserId(req.user!.userId);
+  return contractor ? contractor.id : 'no-match';
+};
 
 /**
  * GET /api/submissions
@@ -25,6 +35,21 @@ router.get('/', verifyToken, async (req: Request, res: Response) => {
   try {
     const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '20', 10), 1), 100);
+
+    if (!GOV_ROLES.has(req.user!.role) && req.user!.role !== 'CONTRACTOR') {
+      return res.status(403).json({ success: false, message: 'Insufficient permissions' });
+    }
+
+    const ENUM_FILTERS: Record<string, readonly string[]> = {
+      status: Object.values(SubmissionStatus),
+      priority: Object.values(Priority),
+    };
+    for (const [key, valid] of Object.entries(ENUM_FILTERS)) {
+      const v = req.query[key];
+      if (v !== undefined && !(valid as string[]).includes(v as string)) {
+        return res.status(400).json({ success: false, message: `Invalid ${key} filter — must be one of: ${valid.join(', ')}` });
+      }
+    }
 
     const filters: ListSubmissionsParams = {
       projectId: typeof req.query.projectId === 'string' ? req.query.projectId : undefined,
@@ -36,6 +61,9 @@ router.get('/', verifyToken, async (req: Request, res: Response) => {
       page,
       limit,
     };
+
+    const scope = await scopeContractorId(req);
+    if (scope) filters.contractorId = scope;
 
     const { submissions, total } = await submissionRepository.listWithFilters(filters);
 
@@ -64,7 +92,7 @@ router.get('/', verifyToken, async (req: Request, res: Response) => {
  * GET /api/submissions/stats
  * Submission statistics (registered before /:id so "stats" isn't treated as an ID)
  */
-router.get('/stats', verifyToken, async (_req: Request, res: Response) => {
+router.get('/stats', verifyToken, requireMEOfficer, async (_req: Request, res: Response) => {
   try {
     const stats = await submissionRepository.getOverviewStats();
     return res.json({
@@ -87,6 +115,11 @@ router.get('/stats', verifyToken, async (_req: Request, res: Response) => {
 router.get('/:id', verifyToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    if (!GOV_ROLES.has(req.user!.role) && req.user!.role !== 'CONTRACTOR') {
+      return res.status(403).json({ success: false, message: 'Insufficient permissions' });
+    }
+
     const submission = await submissionRepository.findByIdWithDetails(id);
 
     if (!submission) {
@@ -94,6 +127,11 @@ router.get('/:id', verifyToken, async (req: Request, res: Response) => {
         success: false,
         message: 'Submission not found',
       });
+    }
+
+    const scope = await scopeContractorId(req);
+    if (scope && submission.submission.contractorId !== scope) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this submission' });
     }
 
     return res.json({
@@ -172,6 +210,27 @@ router.post('/', verifyToken, async (req: Request, res: Response) => {
         success: false,
         message: 'Not authorized to submit for this project',
       });
+    }
+
+    if (!(Object.values(SubmissionType) as string[]).includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid type — must be one of: ${Object.values(SubmissionType).join(', ')}`,
+      });
+    }
+    if (!(Object.values(Priority) as string[]).includes(priority)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid priority — must be one of: ${Object.values(Priority).join(', ')}`,
+      });
+    }
+
+    // A submission may only reference a milestone that belongs to its project
+    if (milestoneId) {
+      const ms = await query('SELECT 1 FROM milestones WHERE id = $1 AND project_id = $2', [milestoneId, projectId]);
+      if (ms.rows.length === 0) {
+        return res.status(400).json({ success: false, message: 'milestoneId does not belong to this project' });
+      }
     }
 
     const submissionData: CreateSubmissionInput = {
@@ -263,11 +322,34 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
       });
     }
 
+    // Terminal submissions are immutable for everyone — an approved record
+    // must not be silently rewritten after the fact.
+    if (submission.status === SubmissionStatus.APPROVED || submission.status === SubmissionStatus.REJECTED) {
+      return res.status(409).json({
+        success: false,
+        message: 'Submission is in a terminal state and cannot be edited',
+      });
+    }
     if (isContractorOwner && submission.status !== SubmissionStatus.PENDING) {
       return res.status(403).json({
         success: false,
         message: 'Can only update pending submissions',
       });
+    }
+
+    // A milestone link must belong to the submission's own project —
+    // otherwise the approve-time cascade silently writes to the wrong one.
+    if (req.body.milestoneId !== undefined && req.body.milestoneId !== null) {
+      const milestoneCheck = await query(
+        'SELECT 1 FROM milestones WHERE id = $1 AND project_id = $2',
+        [req.body.milestoneId, submission.projectId]
+      );
+      if (milestoneCheck.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'milestoneId does not belong to this submission\'s project',
+        });
+      }
     }
 
     // Status/stage changes must go through /transition or /review — the generic
@@ -319,7 +401,7 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
 router.put('/:id/review', verifyToken, requireMEOfficer, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { action, comments, qualityScore, safetyCompliance } = req.body;
+    const { action, comments } = req.body;
 
     if (!action) {
       return res.status(400).json({
@@ -364,17 +446,27 @@ router.put('/:id/review', verifyToken, requireMEOfficer, async (req: Request, re
       });
     }
 
-    const updatedSubmission = await submissionRepository.review(
-      id,
-      req.user.userId,
-      {
-        action,
-        comments,
-        qualityScore: qualityScore !== undefined ? Number(qualityScore) : null,
-        safetyCompliance: safetyCompliance || null,
-      },
-      { projectId: submission.projectId, milestoneId: submission.milestoneId }
+    // Route through the workflow engine: resolve the stage mapping to this
+    // action so role gates, adjacency, and stage history all apply —
+    // the direct review() write bypassed the configured chain entirely.
+    const stageResult = await query(
+      'SELECT key FROM workflow_stages WHERE maps_to_status = $1 ORDER BY order_index LIMIT 1',
+      [action]
     );
+    const targetStage = stageResult.rows[0]?.key as string | undefined;
+    if (!targetStage) {
+      return res.status(400).json({
+        success: false,
+        message: `No workflow stage maps to ${action} — configure one or use /transition`,
+      });
+    }
+
+    const updatedSubmission = await submissionRepository.transition(
+      id, req.user.userId, req.user.role, targetStage, comments
+    );
+    if (!updatedSubmission) {
+      return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
 
     // Notify the submitting contractor user
     try {
@@ -405,9 +497,10 @@ router.put('/:id/review', verifyToken, requireMEOfficer, async (req: Request, re
     });
   } catch (error: any) {
     console.error('Review submission error:', error);
-    return res.status(500).json({
+    const status = error.status || 500;
+    return res.status(status).json({
       success: false,
-      message: 'Failed to review submission',
+      message: status < 500 ? error.message : 'Failed to review submission',
     });
   }
 });
@@ -501,6 +594,15 @@ router.delete('/:id', verifyToken, async (req: Request, res: Response) => {
       });
     }
 
+    // A contractor may only delete their own PENDING submission — removing
+    // a reviewed one would orphan the approval trail and milestone cascade.
+    if (!isAdmin && submission.status !== SubmissionStatus.PENDING) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only pending submissions can be deleted',
+      });
+    }
+
     await submissionRepository.delete(id);
 
     return res.json({
@@ -520,7 +622,7 @@ router.delete('/:id', verifyToken, async (req: Request, res: Response) => {
  * GET /api/submissions/stats/overview
  * Get submission statistics
  */
-router.get('/stats/overview', verifyToken, async (_req: Request, res: Response) => {
+router.get('/stats/overview', verifyToken, requireMEOfficer, async (_req: Request, res: Response) => {
   try {
     const stats = await submissionRepository.getOverviewStats();
     return res.json({

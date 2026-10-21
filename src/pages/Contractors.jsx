@@ -10,7 +10,6 @@ import {
  Mail,
  MapPin,
  Building,
- MoreHorizontal,
  User,
  Award,
  TrendingUp,
@@ -57,10 +56,6 @@ export default function Contractors() {
      .catch(() => {});
  }, []);
 
- // Debug logging
- console.log('Contractors page - contractors from context:', contractors);
- console.log('Contractors page - contractors count:', contractors.length);
-
  const handleViewDetails = (contractor) => {
  setSelectedContractor(contractor);
  setShowDetailModal(true);
@@ -72,14 +67,37 @@ export default function Contractors() {
  };
 
  const filteredContractors = contractors.filter(contractor => {
- const matchesSearch = contractor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
- contractor.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
- contractor.id.toLowerCase().includes(searchTerm.toLowerCase());
+ const q = searchTerm.toLowerCase();
+ const matchesSearch = (contractor.name || '').toLowerCase().includes(q) ||
+ (contractor.contact || '').toLowerCase().includes(q) ||
+ (contractor.id || '').toLowerCase().includes(q);
  const matchesSpecialization = specializationFilter === 'All Specializations' || contractor.specialization === specializationFilter;
  const matchesStatus = statusFilter === 'All Statuses' || contractor.status === statusFilter;
  
  return matchesSearch && matchesSpecialization && matchesStatus;
  });
+
+ const ratedContractors = contractors.filter((c) => Number(c.rating) > 0);
+ const avgRating = ratedContractors.length
+   ? (ratedContractors.reduce((s, c) => s + Number(c.rating), 0) / ratedContractors.length).toFixed(1)
+   : '—';
+
+ const exportCsv = () => {
+ const rows = [
+ ['ID', 'Company', 'Registration', 'Contact', 'Email', 'Phone', 'Specialization', 'Rating', 'Verified', 'Certified'],
+ ...filteredContractors.map((c) => [
+ c.id, c.name, c.registrationNumber || '', c.contact || '', c.email || '', c.phone || '',
+ c.specialization || '', c.rating ?? '', c.isVerified ? 'yes' : 'no', c.isCertified ? 'yes' : 'no',
+ ]),
+ ];
+ const csv = rows.map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+ const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+ const a = document.createElement('a');
+ a.href = url;
+ a.download = 'contractors.csv';
+ a.click();
+ URL.revokeObjectURL(url);
+ };
 
  const renderStars = (rating) => {
  return Array.from({ length: 5 }, (_, i) => (
@@ -102,7 +120,7 @@ export default function Contractors() {
  <p className="text-lg text-muted">Manage and monitor all contractors working on government projects.</p>
  </div>
  <div className="mt-4 sm:mt-0 flex space-x-4">
- <button className="btn-secondary flex items-center space-x-2">
+ <button onClick={exportCsv} className="btn-secondary flex items-center space-x-2" disabled={filteredContractors.length === 0}>
  <Download className="h-4 w-4" />
  <span>Export</span>
  </button>
@@ -148,7 +166,7 @@ export default function Contractors() {
  <div className="flex items-center justify-center w-14 h-14 bg-yellow-100 dark:bg-yellow-950/50 rounded-lg mx-auto mb-4">
  <Award className="h-7 w-7 text-yellow-700 dark:text-yellow-400" />
  </div>
- <h3 className="text-3xl font-bold text-yellow-700 dark:text-yellow-400">4.4</h3>
+ <h3 className="text-3xl font-bold text-yellow-700 dark:text-yellow-400">{avgRating}</h3>
  <p className="text-base text-muted mt-2">Avg. Rating</p>
  </div>
  <div className="card text-center">
@@ -156,9 +174,9 @@ export default function Contractors() {
  <TrendingUp className="h-7 w-7 text-purple-700 dark:text-purple-400" />
  </div>
  <h3 className="text-3xl font-bold text-purple-700 dark:text-purple-400">
- {contractors.reduce((sum, c) => sum + c.projects.ongoing, 0)}
+ {Object.values(riskById).reduce((sum, r) => sum + (r.signals?.totalProjects || 0), 0)}
  </h3>
- <p className="text-base text-muted mt-2">Ongoing Projects</p>
+ <p className="text-base text-muted mt-2">Total Projects</p>
  </div>
  </div>
 
@@ -279,8 +297,8 @@ export default function Contractors() {
  </td>
  <td className="py-5 px-4">
  <div className="text-base">
- <p className="text-green-700 dark:text-green-400 font-medium">{contractor.projects.completed} completed</p>
- <p className="text-yellow-700 dark:text-yellow-400 mt-1">{contractor.projects.ongoing} ongoing</p>
+ <p className="text-ink font-medium">{riskById[contractor.id]?.signals?.totalProjects ?? '—'} total</p>
+ <p className="text-yellow-700 dark:text-yellow-400 mt-1">{riskById[contractor.id]?.signals?.stalledProjects ?? 0} stalled</p>
  </div>
  </td>
  <td className="py-5 px-4">
@@ -291,9 +309,6 @@ export default function Contractors() {
  title="View Details"
  >
  <Eye className="h-5 w-5" />
- </button>
- <button className="text-muted hover:text-muted p-2 rounded-lg hover:bg-bg transition-colors">
- <MoreHorizontal className="h-5 w-5" />
  </button>
  </div>
  </td>
@@ -344,8 +359,8 @@ export default function Contractors() {
  </div>
  </div>
  <div className="text-sm text-right">
- <p className="text-green-700 dark:text-green-400 font-medium">{contractor.projects.completed} completed</p>
- <p className="text-yellow-700 dark:text-yellow-400">{contractor.projects.ongoing} ongoing</p>
+ <p className="text-ink font-medium">{riskById[contractor.id]?.signals?.totalProjects ?? '—'} total</p>
+ <p className="text-yellow-700 dark:text-yellow-400">{riskById[contractor.id]?.signals?.stalledProjects ?? 0} stalled</p>
  </div>
  </div>
  

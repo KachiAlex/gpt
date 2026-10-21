@@ -195,12 +195,39 @@ describe('Auth Routes', () => {
         .send({
           email: 'test@example.com',
           password: 'password123'
-          // missing firstName, lastName, role
+          // missing firstName, role (lastName is optional)
         });
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Email, password, firstName, lastName, and role are required');
+      expect(response.body.message).toBe('Email, password, firstName, and role are required');
+    });
+
+    it('should register with a single-word name (lastName optional)', async () => {
+      mockedRepo.findByEmail.mockResolvedValue(null as any);
+      mockedRepo.create.mockResolvedValue({
+        id: 'new-user-2',
+        email: 'oneword@example.com',
+        firstName: 'Madonna',
+        lastName: '',
+        role: 'PUBLIC',
+        isActive: true,
+      } as any);
+
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'oneword@example.com',
+          password: 'password123',
+          firstName: 'Madonna',
+          lastName: '',
+          role: 'PUBLIC'
+        });
+
+      expect(response.status).toBe(201);
+      expect(mockedRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ lastName: '' })
+      );
     });
   });
 });

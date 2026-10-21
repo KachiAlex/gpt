@@ -92,7 +92,7 @@ export default function PublicPortal() {
         popup: (
           <div className="text-sm">
             <div className="font-semibold">{p.name}</div>
-            <div>{p.lga}</div>
+            <div>{Array.isArray(p.lga) ? p.lga.join(', ') : p.lga}</div>
           </div>
         ),
       })),
@@ -261,7 +261,7 @@ export default function PublicPortal() {
                 <div className="flex items-center justify-between gap-2.5">
                   <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary-800 bg-primary-100 px-2.5 py-[3px] rounded-full">
                     <MapPin className="w-[13px] h-[13px]" />
-                    {p.lga}
+                    {Array.isArray(p.lga) ? p.lga.join(', ') : p.lga}
                   </span>
                   <StatusPill status={p.status} />
                 </div>

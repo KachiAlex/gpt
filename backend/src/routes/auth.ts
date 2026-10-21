@@ -44,14 +44,21 @@ const issueToken = (user: DbUser, contractorId: string | null) =>
   );
 
 /**
- * Returns the decoded caller if a valid admin token is present, else null.
+ * Returns the caller if they hold a valid token AND are still an active
+ * GOVERNMENT_ADMIN in the database — the JWT claim alone is not enough,
+ * since a demoted/deactivated admin's token would otherwise mint new
+ * admins for the rest of its 7-day lifetime.
  */
-const getAdminCaller = (req: Request): { userId: string; role: string } | null => {
+const getAdminCaller = async (req: Request): Promise<{ userId: string; role: string } | null> => {
   const token = getTokenFromRequest(req);
   if (!token) return null;
   try {
-    const decoded = jwt.verify(token, config.jwtSecret) as { userId: string; role: string };
-    return decoded.role === 'GOVERNMENT_ADMIN' ? decoded : null;
+    const decoded = jwt.verify(token, config.jwtSecret) as { userId: string; role: string; purpose?: string };
+    if (decoded.purpose || !decoded.userId) return null;
+    const result = await query('SELECT is_active, role FROM users WHERE id = $1', [decoded.userId]);
+    const user = result.rows[0];
+    if (!user || user.is_active === false || user.role !== 'GOVERNMENT_ADMIN') return null;
+    return { userId: decoded.userId, role: user.role };
   } catch {
     return null;
   }
@@ -334,11 +341,11 @@ router.post('/register', async (req: Request, res: Response) => {
   try {
     const { email, password, firstName, lastName, role, phone, department, jobTitle } = req.body;
 
-    // Validate input
-    if (!email || !password || !firstName || !lastName || !role) {
+    // Validate input — lastName is optional (single-word names are common)
+    if (!email || !password || !firstName || !role) {
       return res.status(400).json({
         success: false,
-        message: 'Email, password, firstName, lastName, and role are required'
+        message: 'Email, password, firstName, and role are required'
       });
     }
 
@@ -359,7 +366,7 @@ router.post('/register', async (req: Request, res: Response) => {
     }
 
     // Privileged roles require an authenticated admin
-    if (PRIVILEGED_ROLES.includes(requestedRole) && !getAdminCaller(req)) {
+    if (PRIVILEGED_ROLES.includes(requestedRole) && !(await getAdminCaller(req))) {
       return res.status(403).json({
         success: false,
         message: 'Only government admins can create staff accounts'
@@ -381,7 +388,7 @@ router.post('/register', async (req: Request, res: Response) => {
       email: email.toLowerCase(),
       password: hashedPassword,
       firstName,
-      lastName,
+      lastName: lastName || '',
       role: requestedRole as UserRole,
       phone: phone || null,
       department: department || null,
@@ -548,15 +555,21 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
         [user.id, tokenHash, expiresAt]
       );
 
-      const resetUrl = `${getFrontendUrl()}/reset-password?token=${token}`;
-      const sent = await sendEmail(
-        email,
-        'Reset your Government Project Tracker password',
-        `A password reset was requested for this account.\n\nOpen this link within 30 minutes to choose a new password:\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`
-      );
-      if (!sent && config.nodeEnv !== 'production') {
-        // Dev fallback only — never write live reset tokens to production logs
-        console.log(`[auth] Password reset link for ${email}: ${resetUrl}`);
+      const resetUrl = `${getFrontendUrl(req.get('origin'))}/reset-password?token=${token}`;
+      try {
+        const sent = await sendEmail(
+          email,
+          'Reset your Government Project Tracker password',
+          `A password reset was requested for this account.\n\nOpen this link within 30 minutes to choose a new password:\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`
+        );
+        if (!sent && config.nodeEnv !== 'production') {
+          // Dev fallback only — never write live reset tokens to production logs
+          console.log(`[auth] Password reset link for ${email}: ${resetUrl}`);
+        }
+      } catch (mailError) {
+        // Swallow SMTP failures — a 500 here only happens for registered
+        // emails, which would leak account existence.
+        console.error(`[auth] Failed to send reset email to ${email}:`, mailError);
       }
     }
 

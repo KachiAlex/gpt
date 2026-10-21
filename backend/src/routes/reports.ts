@@ -29,7 +29,7 @@ const buildReportData = async (options: {
   }
   if (options.endDate) {
     params.push(options.endDate);
-    clauses.push(`created_at <= ($${params.length}::date + INTERVAL '1 day')`);
+    clauses.push(`created_at < ($${params.length}::date + INTERVAL '1 day')`);
   }
   if (options.scope === 'active') clauses.push(`status = 'IN_PROGRESS'`);
   if (options.scope === 'completed') clauses.push(`status = 'COMPLETED'`);
@@ -203,8 +203,7 @@ router.get('/:id', authenticate, generateRoles, async (req: Request, res: Respon
 
 /**
  * GET /api/reports/:id/download
- * Download the report data as a JSON file. Accepts ?token= for
- * browser-driven downloads.
+ * Download the report data as a JSON file (Authorization header only).
  */
 router.get('/:id/download', authenticate, generateRoles, async (req: Request, res: Response) => {
   try {

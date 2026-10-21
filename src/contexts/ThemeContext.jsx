@@ -11,42 +11,55 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  // Initialize theme from localStorage or default to 'light'
+  // 'auto' is a stored preference — the effective theme tracks the OS setting
   const [theme, setTheme] = useState(() => {
     try {
       const savedTheme = localStorage.getItem('app_theme');
-      return savedTheme || 'light';
+      return ['light', 'dark', 'auto'].includes(savedTheme) ? savedTheme : 'light';
     } catch {
       return 'light';
     }
   });
+  const [systemDark, setSystemDark] = useState(() =>
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
+
+  // Follow OS dark-mode changes while in 'auto'
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (e) => setSystemDark(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const effectiveTheme = theme === 'auto' ? (systemDark ? 'dark' : 'light') : theme;
 
   // Apply theme to document
   useEffect(() => {
     const root = document.documentElement;
-    
-    if (theme === 'dark') {
+
+    if (effectiveTheme === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
-    
-    // Save to localStorage
+
+    // Save the *mode* (incl. 'auto'), not the resolved value
     localStorage.setItem('app_theme', theme);
-  }, [theme]);
+  }, [theme, effectiveTheme]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    setTheme(prev => (prev === 'auto' ? systemDark : prev === 'dark') ? 'light' : 'dark');
   };
 
   const setThemeValue = (newTheme) => {
     if (['light', 'dark', 'auto'].includes(newTheme)) {
-      setTheme(newTheme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : newTheme);
+      setTheme(newTheme);
     }
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme: setThemeValue, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, effectiveTheme, setTheme: setThemeValue, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

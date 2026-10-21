@@ -150,6 +150,8 @@ router.put('/', authenticate, requireRoles('GOVERNMENT_ADMIN'), async (req: Requ
  * GET /api/instance/workflow
  * Public — the configured submission review chain for this deployment.
  */
+// Stage names + role gates are low-sensitivity and needed pre-login by the
+// SPA boot — consistent with the public GET /api/instance branding read.
 router.get('/workflow', async (_req: Request, res: Response) => {
   try {
     return res.json({ success: true, data: { stages: await getStages() } });
@@ -176,11 +178,24 @@ router.get('/workflow', async (_req: Request, res: Response) => {
  * System stages (SUBMITTED entry point, APPROVED/REJECTED terminals) are kept;
  * custom mid-stages are inserted between SUBMITTED and APPROVED.
  */
+const SYSTEM_STAGE_KEYS = new Set(['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED']);
+const VALID_STAGE_ROLES = new Set(['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER', 'CONTRACTOR']);
+
 const validateStagePayload = (incoming: any): string | null => {
   if (!Array.isArray(incoming)) return 'stages array is required';
+  if (incoming.length === 0) return 'At least one review stage is required';
   for (const s of incoming) {
     if (!s?.label || typeof s.label !== 'string') return 'Each stage needs a label';
-    if (!Array.isArray(s.allowedRoles)) return 'Each stage needs allowedRoles[]';
+    if (!Array.isArray(s.allowedRoles) || s.allowedRoles.length === 0) return 'Each stage needs allowedRoles[]';
+    if (!s.allowedRoles.every((r: any) => typeof r === 'string' && VALID_STAGE_ROLES.has(r))) {
+      return `allowedRoles must be valid roles (${[...VALID_STAGE_ROLES].join(', ')})`;
+    }
+    // A label-only stage must not slug-collide with a system key — that
+    // would silently rename e.g. APPROVED into "Approved!".
+    if (!s.key) {
+      const computed = s.label.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+      if (SYSTEM_STAGE_KEYS.has(computed)) return `Stage label "${s.label}" conflicts with a system stage`;
+    }
   }
   return null;
 };
@@ -328,15 +343,11 @@ const decideRequest = (approve: boolean) =>
         return res.status(403).json({ success: false, message: 'A second administrator must decide this request' });
       }
 
-      await client.query(
-        `UPDATE config_requests SET status = $2, decided_by = $3, decided_at = NOW() WHERE id = $1`,
-        [req.params.id, approve ? 'APPROVED' : 'REJECTED', req.user!.userId]
-      );
-      await audit(auditFromReq(req, approve ? 'config.approve' : 'config.reject', 'config_request', req.params.id, { kind: request.kind }), client);
-      await client.query('COMMIT');
-
-      // Apply outside the request-status transaction so a failed apply
-      // doesn't silently re-open the request
+      // Apply BEFORE marking the request decided. If the apply throws, the
+      // request stays PENDING and a second admin can retry — the previous
+      // order (mark APPROVED, then apply) left a permanently approved-
+      // but-never-applied request that could not be retried. The applies
+      // are idempotent, so a retry after a failed decision-write is safe.
       if (approve) {
         if (request.kind === 'instance') {
           await applyInstanceUpdate(request.payload);
@@ -347,6 +358,14 @@ const decideRequest = (approve: boolean) =>
           );
         }
       }
+
+      await client.query(
+        `UPDATE config_requests SET status = $2, decided_by = $3, decided_at = NOW() WHERE id = $1`,
+        [req.params.id, approve ? 'APPROVED' : 'REJECTED', req.user!.userId]
+      );
+      await audit(auditFromReq(req, approve ? 'config.approve' : 'config.reject', 'config_request', req.params.id, { kind: request.kind }), client);
+      await client.query('COMMIT');
+
       return res.json({ success: true, message: approve ? 'Change approved and applied' : 'Request rejected' });
     } catch (error: any) {
       await client.query('ROLLBACK').catch(() => undefined);

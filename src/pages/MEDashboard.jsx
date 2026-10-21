@@ -26,19 +26,32 @@ export default function MEDashboard() {
   const [detail, setDetail] = useState(null);
   const [comments, setComments] = useState('');
   const [acting, setActing] = useState(false);
+  const [pagination, setPagination] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const load = async () => {
+  const load = async (page = 1, append = false) => {
     try {
-      const res = await submissionAPI.getAll();
+      const res = await submissionAPI.getAll({ page, limit: 50 });
       const list = res?.data?.submissions || [];
       list.sort((a, b) => new Date(b.submittedAt || b.createdAt || 0) - new Date(a.submittedAt || a.createdAt || 0));
-      setSubmissions(list);
+      setSubmissions((prev) => (append ? [...prev, ...list] : list));
+      setPagination(res?.data?.pagination || null);
       return list;
     } catch (e) {
       showError(e.message || 'Failed to load submissions');
       return [];
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (!pagination || pagination.page >= pagination.pages) return;
+    setLoadingMore(true);
+    try {
+      await load(pagination.page + 1, true);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -189,6 +202,18 @@ export default function MEDashboard() {
                 </button>
               );
             })}
+            {pagination && pagination.page < pagination.pages && (
+              <div className="p-3 text-center">
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="btn-secondary text-sm py-1.5 disabled:opacity-50"
+                >
+                  {loadingMore ? 'Loading…' : `Load more (${pagination.total - submissions.length} remaining)`}
+                </button>
+              </div>
+            )}
           </section>
 
           {/* Review panel */}

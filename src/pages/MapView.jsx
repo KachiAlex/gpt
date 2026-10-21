@@ -7,8 +7,6 @@ import {
  Filter,
  Layers,
  Eye,
- Info,
- Calendar,
  AlertTriangle,
  RefreshCw
 } from 'lucide-react';
@@ -104,14 +102,15 @@ export default function MapView() {
  setLoading(true);
  setError(null);
  try {
+ // Contractors list is government-only — a 403 there must not kill the map
  const [projectsRes, contractorsRes] = await Promise.all([
  projectAPI.getAll({ limit: 100 }),
- contractorAPI.getAll({ limit: 100 }),
+ contractorAPI.getAll({ limit: 100 }).catch(() => null),
  ]);
  setProjects(projectsRes.data?.projects || []);
 
  const nameMap = {};
- (contractorsRes.data?.contractors || []).forEach((c) => {
+ (contractorsRes?.data?.contractors || []).forEach((c) => {
  nameMap[c.id] = c.companyName;
  });
  setContractorNames(nameMap);
@@ -486,14 +485,6 @@ export default function MapView() {
  <Eye className="h-4 w-4 mr-1 inline" />
  View Details
  </Link>
- <button className="btn-secondary text-sm py-2">
- <Info className="h-4 w-4 mr-1 inline" />
- Project Info
- </button>
- <button className="btn-secondary text-sm py-2">
- <Calendar className="h-4 w-4 mr-1 inline" />
- Timeline
- </button>
  </div>
  </div>
  </div>

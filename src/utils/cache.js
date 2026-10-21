@@ -82,9 +82,17 @@ export const invalidateMultiple = (keys) => {
 };
 
 /**
- * Clear all app caches
+ * Clear all app caches — exact keys plus per-user variants (`<key>_<userId>`).
+ * Called on sign-out and token expiry so the next user can't see stale data.
  */
 export const clearAllCaches = () => {
-  Object.values(CACHE_KEYS).forEach(key => invalidateCache(key));
+  try {
+    const prefixes = Object.values(CACHE_KEYS);
+    Object.keys(localStorage)
+      .filter((k) => prefixes.some((p) => k === p || k.startsWith(`${p}_`)))
+      .forEach((k) => localStorage.removeItem(k));
+  } catch (error) {
+    console.error('Error clearing caches:', error);
+  }
 };
 

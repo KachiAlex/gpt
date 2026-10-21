@@ -15,6 +15,16 @@ const router = Router();
 
 const verifyToken = authenticate;
 const requireAdmin = requireRoles('GOVERNMENT_ADMIN');
+const GOV_ROLES = new Set(['GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER']);
+
+// Read scoping: contractors only ever see projects assigned to their own
+// company; PUBLIC accounts get nothing internal (the public portal is
+// their interface).
+const scopeContractorFilter = async (req: Request): Promise<string | null | false> => {
+  if (req.user!.role !== 'CONTRACTOR') return null; // no forced scope
+  const contractor = await contractorRepository.findByUserId(req.user!.userId);
+  return contractor ? contractor.id : 'no-match'; // unknown profile → empty result set
+};
 
 /**
  * GET /api/projects
@@ -22,6 +32,10 @@ const requireAdmin = requireRoles('GOVERNMENT_ADMIN');
  */
 router.get('/', verifyToken, async (req: Request, res: Response) => {
   try {
+    if (!GOV_ROLES.has(req.user!.role) && req.user!.role !== 'CONTRACTOR') {
+      return res.status(403).json({ success: false, message: 'Insufficient permissions' });
+    }
+
     const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
     const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '20', 10), 1), 100);
     const lga = req.query.lga
@@ -29,6 +43,18 @@ router.get('/', verifyToken, async (req: Request, res: Response) => {
         ? (req.query.lga as string[])
         : [req.query.lga as string]
       : undefined;
+
+    const ENUM_FILTERS: Record<string, readonly string[]> = {
+      status: Object.values(ProjectStatus),
+      category: Object.values(ProjectCategory),
+      priority: Object.values(Priority),
+    };
+    for (const [key, valid] of Object.entries(ENUM_FILTERS)) {
+      const v = req.query[key];
+      if (v !== undefined && !(valid as string[]).includes(v as string)) {
+        return res.status(400).json({ success: false, message: `Invalid ${key} filter — must be one of: ${valid.join(', ')}` });
+      }
+    }
 
     const filters: ListProjectsParams = {
       status: typeof req.query.status === 'string' ? req.query.status : undefined,
@@ -40,6 +66,11 @@ router.get('/', verifyToken, async (req: Request, res: Response) => {
       page,
       limit,
     };
+
+    // A contractor's requested filter can't widen the scope — always pin
+    // the list to their own company.
+    const scope = await scopeContractorFilter(req);
+    if (scope) filters.contractorId = scope;
 
     const { projects, total } = await projectRepository.listWithFilters(filters);
 
@@ -68,7 +99,7 @@ router.get('/', verifyToken, async (req: Request, res: Response) => {
  * GET /api/projects/stats
  * Alias to stats overview for frontend compatibility
  */
-router.get('/stats', verifyToken, async (_req: Request, res: Response) => {
+router.get('/stats', verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER'), async (_req: Request, res: Response) => {
   try {
     const result = await query('SELECT * FROM projects');
     const projects = result.rows.map(rowToCamelCase);
@@ -96,7 +127,7 @@ router.get('/stats', verifyToken, async (_req: Request, res: Response) => {
  * GET /api/projects/stats
  * Get project statistics
  */
-router.get('/stats/overview', verifyToken, async (_req: Request, res: Response) => {
+router.get('/stats/overview', verifyToken, requireRoles('GOVERNMENT_ADMIN', 'GOVERNMENT_OFFICER', 'ME_OFFICER'), async (_req: Request, res: Response) => {
   try {
     const result = await query('SELECT * FROM projects');
     const projects = result.rows.map(rowToCamelCase);
@@ -134,12 +165,21 @@ router.get('/:id', verifyToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    if (!GOV_ROLES.has(req.user!.role) && req.user!.role !== 'CONTRACTOR') {
+      return res.status(403).json({ success: false, message: 'Insufficient permissions' });
+    }
+
     const project = await projectRepository.findById(id);
     if (!project) {
       return res.status(404).json({
         success: false,
         message: 'Project not found',
       });
+    }
+
+    const scope = await scopeContractorFilter(req);
+    if (scope && project.contractorId !== scope) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this project' });
     }
 
     const contractor = project.contractorId
@@ -278,10 +318,18 @@ router.put('/:id', verifyToken, async (req: Request, res: Response) => {
     const CONTRACTOR_FIELDS = new Set(['weatherDelay', 'safetyIncidents']);
     const allowed = isAdmin ? ADMIN_FIELDS : isProjectManager ? PM_FIELDS : CONTRACTOR_FIELDS;
 
+    const ENUM_FIELDS: Record<string, readonly string[]> = {
+      status: Object.values(ProjectStatus),
+      category: Object.values(ProjectCategory),
+      priority: Object.values(Priority),
+    };
     const updates: UpdateProjectInput = {};
     for (const [key, value] of Object.entries(req.body)) {
       if (value === undefined) continue;
       if (!allowed.has(key)) continue;
+      if (key in ENUM_FIELDS && !(ENUM_FIELDS[key] as string[]).includes(value as string)) {
+        return res.status(400).json({ success: false, message: `Invalid ${key} — must be one of: ${ENUM_FIELDS[key].join(', ')}` });
+      }
       if (key === 'lga') {
         updates.lga = Array.isArray(value) ? value : [value];
       } else if (key === 'startDate' || key === 'expectedEndDate' || key === 'actualEndDate') {

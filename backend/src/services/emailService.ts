@@ -32,5 +32,12 @@ export const sendEmail = async (to: string, subject: string, text: string): Prom
   return true;
 };
 
-export const getFrontendUrl = (): string =>
-  process.env.FRONTEND_URL || 'https://gptapp.vercel.app';
+/**
+ * Base URL for links in outbound email. Prefers FRONTEND_URL (set per
+ * deployment), then the request Origin — a hardcoded default would send
+ * white-label users to the wrong instance.
+ */
+export const getFrontendUrl = (origin?: string): string =>
+  process.env.FRONTEND_URL ||
+  (origin && /^https?:\/\/[\w.-]+(?::\d+)?$/.test(origin) ? origin : '') ||
+  'http://localhost:5173';

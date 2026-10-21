@@ -1,5 +1,6 @@
 import { getClient, objectToSnakeCase, query, rowToCamelCase } from '../config/database';
 import { transitionSubmission } from '../services/workflowService';
+import { PROJECT_PROGRESS_RECOMPUTE_SQL } from './projectRepository';
 import {
   CreateSubmissionInput,
   DbApproval,
@@ -447,30 +448,7 @@ export const submissionRepository = {
       }
 
       if (cascade) {
-        await client.query(
-          `WITH ms AS (
-             SELECT COALESCE(AVG(progress), 0) AS avg_progress,
-                    COUNT(*) AS total,
-                    COUNT(*) FILTER (WHERE status = 'COMPLETED') AS done
-             FROM milestones
-             WHERE project_id = $1 AND status <> 'CANCELLED'
-           )
-           UPDATE projects p
-           SET progress = ROUND(ms.avg_progress)::int,
-               status = CASE
-                 WHEN ms.total > 0 AND ms.done = ms.total THEN 'COMPLETED'
-                 WHEN p.status = 'COMPLETED' AND ms.total > 0 THEN 'IN_PROGRESS'
-                 ELSE p.status
-               END,
-               actual_end_date = CASE
-                 WHEN ms.total > 0 AND ms.done = ms.total THEN COALESCE(p.actual_end_date, NOW())
-                 ELSE p.actual_end_date
-               END,
-               updated_at = NOW()
-           FROM ms
-           WHERE p.id = $1 AND ms.total > 0`,
-          [cascade.projectId]
-        );
+        await client.query(PROJECT_PROGRESS_RECOMPUTE_SQL, [cascade.projectId]);
       }
 
       await client.query('COMMIT');
@@ -551,30 +529,7 @@ export const submissionRepository = {
       }
 
       if (outcome === 'APPROVED' || outcome === 'REJECTED') {
-        await client.query(
-          `WITH ms AS (
-             SELECT COALESCE(AVG(progress), 0) AS avg_progress,
-                    COUNT(*) AS total,
-                    COUNT(*) FILTER (WHERE status = 'COMPLETED') AS done
-             FROM milestones
-             WHERE project_id = $1 AND status <> 'CANCELLED'
-           )
-           UPDATE projects p
-           SET progress = ROUND(ms.avg_progress)::int,
-               status = CASE
-                 WHEN ms.total > 0 AND ms.done = ms.total THEN 'COMPLETED'
-                 WHEN p.status = 'COMPLETED' AND ms.total > 0 THEN 'IN_PROGRESS'
-                 ELSE p.status
-               END,
-               actual_end_date = CASE
-                 WHEN ms.total > 0 AND ms.done = ms.total THEN COALESCE(p.actual_end_date, NOW())
-                 ELSE p.actual_end_date
-               END,
-               updated_at = NOW()
-           FROM ms
-           WHERE p.id = $1 AND ms.total > 0`,
-          [sub.projectId]
-        );
+        await client.query(PROJECT_PROGRESS_RECOMPUTE_SQL, [sub.projectId]);
       }
 
       const refreshed = await client.query(`SELECT ${submissionColumns} FROM submissions s WHERE s.id = $1`, [id]);
