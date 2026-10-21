@@ -627,7 +627,7 @@ export default function ContractorDashboard() {
  {/* Enhanced Upload Modal */}
  {showUploadModal && (
  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
- <div className="bg-surface rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+ <div role="dialog" aria-modal="true" aria-label="Submit project update" className="bg-surface rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
  <h3 className="text-xl font-semibold text-ink mb-6">Submit Project Update</h3>
  
  <div className="space-y-6">

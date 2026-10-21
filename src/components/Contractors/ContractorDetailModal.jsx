@@ -38,7 +38,7 @@ export default function ContractorDetailModal({ contractor, isOpen, onClose }) {
 
  return (
  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
- <div className="bg-surface rounded-lg shadow-sm max-w-4xl w-full max-h-[90vh] overflow-hidden">
+ <div role="dialog" aria-modal="true" aria-label="Contractor details" className="bg-surface rounded-lg shadow-sm max-w-4xl w-full max-h-[90vh] overflow-hidden">
  {/* Header */}
  <div className="p-6 border-b border-border">
  <div className="flex items-center justify-between">
@@ -53,6 +53,7 @@ export default function ContractorDetailModal({ contractor, isOpen, onClose }) {
  </div>
  <button
  onClick={onClose}
+ aria-label="Close contractor details"
  className="text-muted hover:text-muted transition-colors"
  >
  <X className="h-6 w-6" />

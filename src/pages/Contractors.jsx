@@ -472,10 +472,10 @@ export default function Contractors() {
  {/* Assign project modal */}
  {assignTarget && (
  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeAssign}>
- <div className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+ <div role="dialog" aria-modal="true" aria-label="Assign project" className="bg-surface border border-border rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
  <div className="flex items-center justify-between mb-4">
  <h3 className="text-lg font-semibold text-ink">Assign project</h3>
- <button type="button" onClick={closeAssign} className="p-1 hover:bg-hoverbg rounded-lg">
+ <button type="button" onClick={closeAssign} aria-label="Close" className="p-1 hover:bg-hoverbg rounded-lg">
  <X className="h-5 w-5 text-muted" />
  </button>
  </div>

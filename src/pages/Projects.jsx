@@ -409,6 +409,7 @@ export default function Projects() {
  disabled={deletingId === project.id}
  className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors disabled:opacity-50"
  title="Delete project"
+ aria-label={`Delete ${project.name}`}
  >
  <Trash2 className="h-5 w-5" />
  </button>

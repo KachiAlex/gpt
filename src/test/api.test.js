@@ -10,7 +10,7 @@ const jsonResponse = (status, body = {}) =>
 describe('apiFetch', () => {
   beforeEach(() => {
     localStorage.clear();
-    global.fetch = vi.fn();
+    vi.stubGlobal('fetch', vi.fn());
   });
   afterEach(() => vi.restoreAllMocks());
 

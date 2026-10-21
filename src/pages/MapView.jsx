@@ -395,7 +395,7 @@ export default function MapView() {
  {/* Project Details Modal */}
  {selectedProject && (
  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
- <div className="bg-surface rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+ <div role="dialog" aria-modal="true" aria-label="Project details" className="bg-surface rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
  <div className="p-6">
  <div className="flex items-center justify-between mb-6">
  <div className="flex items-center space-x-3">

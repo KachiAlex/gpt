@@ -26,7 +26,9 @@ export default function Header({ onSearch }) {
   };
 
   const handleSignOut = () => {
-    localStorage.clear();
+    // Remove only app keys — don't wipe theme and unrelated localStorage
+    localStorage.removeItem('gpt_auth');
+    localStorage.removeItem('projects_list_cache');
     signOut();
     navigate('/');
   };
@@ -69,6 +71,9 @@ export default function Header({ onSearch }) {
           <button
             type="button"
             onClick={() => setShowUserMenu(!showUserMenu)}
+            aria-expanded={showUserMenu}
+            aria-haspopup="menu"
+            aria-label="Account menu"
             className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-hoverbg transition-colors"
           >
             <span className="w-9 h-9 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-semibold overflow-hidden">

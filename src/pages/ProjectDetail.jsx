@@ -503,7 +503,7 @@ export default function ProjectDetail() {
       {/* Edit modal */}
       {isEditOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setIsEditOpen(false)}>
-          <div className="bg-surface rounded-2xl w-full max-w-lg p-8" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label="Edit project" className="bg-surface rounded-2xl w-full max-w-lg p-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="m-0 font-bold text-xl">Edit project</h2>
               <button onClick={() => setIsEditOpen(false)} className="w-11 h-11 rounded-xl text-muted hover:bg-hoverbg flex items-center justify-center" aria-label="Close">
@@ -551,7 +551,7 @@ export default function ProjectDetail() {
       {/* Milestone modal */}
       {milestoneModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setMilestoneModal(null)}>
-          <div className="bg-surface rounded-2xl w-full max-w-lg p-8" onClick={(e) => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label={milestoneModal.mode === 'edit' ? 'Edit milestone' : 'Add milestone'} className="bg-surface rounded-2xl w-full max-w-lg p-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="m-0 font-bold text-xl">{milestoneModal.mode === 'edit' ? 'Edit milestone' : 'Add milestone'}</h2>
               <button onClick={() => setMilestoneModal(null)} className="w-11 h-11 rounded-xl text-muted hover:bg-hoverbg flex items-center justify-center" aria-label="Close">
