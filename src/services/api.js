@@ -576,6 +576,16 @@ export const userAPI = {
     apiFetch('/users/notifications/read-all', {
       method: 'PUT',
     }),
+
+  deleteNotification: (id) =>
+    apiFetch(`/users/notifications/${id}`, {
+      method: 'DELETE',
+    }),
+
+  deleteAllNotifications: () =>
+    apiFetch('/users/notifications', {
+      method: 'DELETE',
+    }),
 };
 
 // ============================================================================

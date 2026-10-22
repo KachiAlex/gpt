@@ -307,6 +307,34 @@ router.put('/notifications/read-all', authenticate, async (req: Request, res: Re
 });
 
 /**
+ * DELETE /api/users/notifications/:id
+ * Delete a single notification
+ */
+router.delete('/notifications/:id', authenticate, async (req: Request, res: Response) => {
+  try {
+    await notificationRepository.remove(req.params.id, req.user!.userId);
+    return res.json({ success: true, message: 'Notification deleted' });
+  } catch (error: any) {
+    console.error('Delete notification error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete notification' });
+  }
+});
+
+/**
+ * DELETE /api/users/notifications
+ * Delete all of the current user's notifications
+ */
+router.delete('/notifications', authenticate, async (req: Request, res: Response) => {
+  try {
+    await notificationRepository.removeAll(req.user!.userId);
+    return res.json({ success: true, message: 'All notifications deleted' });
+  } catch (error: any) {
+    console.error('Delete all notifications error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete notifications' });
+  }
+});
+
+/**
  * POST /api/users/upload-profile-image
  * Upload a profile image (stored as a public file)
  */

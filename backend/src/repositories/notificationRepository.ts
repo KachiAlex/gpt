@@ -55,6 +55,17 @@ export const notificationRepository = {
     );
   },
 
+  async remove(id: string, userId: string): Promise<void> {
+    await query(
+      'DELETE FROM notifications WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+  },
+
+  async removeAll(userId: string): Promise<void> {
+    await query('DELETE FROM notifications WHERE user_id = $1', [userId]);
+  },
+
   async create(input: CreateNotificationInput): Promise<DbNotification> {
     const result = await query(
       `INSERT INTO notifications (user_id, type, title, message, data, is_urgent)
